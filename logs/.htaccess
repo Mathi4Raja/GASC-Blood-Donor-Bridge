@@ -1,0 +1,10 @@
+# Deny all access to log files
+<Files "*">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Alternative for Apache 2.4+
+<RequireAll>
+    Require all denied
+</RequireAll>

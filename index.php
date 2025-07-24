@@ -17,12 +17,12 @@ session_start();
     <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
-<body>
+<body class="landing-page">
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="#home">
-                <img src="assets/images/gobi-arts-science-logo.png" alt="GASC Logo" class="me-2">
+                <img src="assets/images/gobi-arts-science-logo.png" alt="GASC Logo" class="me-2" style="height: 40px;">
                 <span class="fw-bold text-danger">GASC Blood Bridge</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -43,9 +43,9 @@ session_start();
                         <a class="nav-link" href="#rules">Rules</a>
                     </li>
                     <li class="nav-item">
-                        <button class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#loginModal">
+                        <a href="admin/login.php" class="btn btn-outline-danger ms-2">
                             <i class="fas fa-sign-in-alt me-1"></i>Admin Login
-                        </button>
+                        </a>
                     </li>
                 </ul>
             </div>
@@ -283,68 +283,43 @@ session_start();
     </section>
 
     <!-- Footer -->
-    <footer class="bg-dark text-light py-5">
+    <footer class="bg-dark text-light py-3">
         <div class="container">
             <div class="row">
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <h5 class="fw-bold text-danger mb-3">GASC Blood Donor Bridge</h5>
-                    <p class="text-light mb-3">A student-led initiative connecting hearts and saving lives through technology and compassion.</p>
-                    <div class="social-links">
-                        <a href="#" class="text-light me-3" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#" class="text-light me-3" title="Twitter"><i class="fab fa-twitter"></i></a>
-                        <a href="#" class="text-light me-3" title="Instagram"><i class="fab fa-instagram"></i></a>
-                        <a href="#" class="text-light" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                <div class="col-lg-4 col-md-6 col-12 mb-3">
+                    <h6 class="fw-bold text-danger mb-2">GASC Blood Donor Bridge</h6>
+                    <p class="text-light mb-0 small">Connecting hearts and saving lives through technology.</p>
+                </div>
+                <div class="col-lg-4 col-md-6 col-12 mb-3">
+                    <h6 class="fw-bold mb-2 text-light">Contact Info</h6>
+                    <div class="contact-info">
+                        <p class="text-light mb-1 small d-flex align-items-center">
+                            <i class="fas fa-university text-danger me-2"></i>
+                            <span>Gobi Arts & Science College</span>
+                        </p>
+                        <p class="text-light mb-1 small d-flex align-items-center">
+                            <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                            <span>Gobichettipalayam, Tamil Nadu</span>
+                        </p>
+                        <p class="text-light mb-0 small d-flex align-items-center">
+                            <i class="fas fa-envelope text-danger me-2"></i>
+                            <span>info@gasccollege.edu.in</span>
+                        </p>
                     </div>
                 </div>
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <h5 class="fw-bold mb-3 text-light">About GASC</h5>
-                    <p class="text-light mb-2">
-                        <i class="fas fa-university text-danger me-2"></i>
-                        Gobi Arts & Science College
-                    </p>
-                    <p class="text-light mb-2">
-                        <i class="fas fa-map-marker-alt text-danger me-2"></i>
-                        Gobichettipalayam, Tamil Nadu
-                    </p>
-                    <p class="text-light mb-2">
-                        <i class="fas fa-envelope text-danger me-2"></i>
-                        info@gasccollege.edu.in
-                    </p>
-                    <p class="text-light">
-                        <i class="fas fa-phone text-danger me-2"></i>
-                        +91 4285 222 xxx
-                    </p>
-                </div>
-                <div class="col-lg-4 col-md-12">
-                    <h5 class="fw-bold mb-3 text-light">Developer Credits</h5>
-                    <div class="dev-credits">
-                        <p class="text-light mb-2">
-                            <i class="fas fa-code text-danger me-2"></i>
-                            Developed by GASC Students
-                        </p>
-                        <p class="text-light mb-2">
-                            <i class="fas fa-graduation-cap text-danger me-2"></i>
-                            Computer Science Department
-                        </p>
-                        <p class="text-light mb-2">
-                            <i class="fas fa-calendar text-danger me-2"></i>
-                            Academic Year 2024-25
-                        </p>
-                        <p class="text-light small">
-                            Built with ❤️ using PHP, MySQL & Bootstrap
-                        </p>
-                    </div>
+                <div class="col-lg-4 col-md-12 col-12 mb-3">
+                    <h6 class="fw-bold mb-2 text-light">Development</h6>
+                    <p class="text-light mb-1 small">Developed by MCA Students </p>
+                    <p class="text-light mb-0 small">(MATHI RAJA & GOKULA KANNAN)</p>
                 </div>
             </div>
-            <hr class="border-secondary my-4">
+            <hr class="border-secondary my-2">
             <div class="row align-items-center">
-                <div class="col-md-6">
-                    <p class="text-light mb-0">© 2025 GASC Blood Donor Bridge. All rights reserved.</p>
+                <div class="col-md-6 col-12 text-center text-md-start">
+                    <p class="text-light mb-0 small">© 2025 GASC Blood Bridge. All rights reserved.</p>
                 </div>
-                <div class="col-md-6 text-md-end">
-                    <p class="text-light mb-0 small">
-                        Made with <i class="fas fa-heart text-danger"></i> for humanity
-                    </p>
+                <div class="col-md-6 col-12 text-center text-md-end">
+                    <p class="text-light mb-0 small">Made with <i class="fas fa-heart text-danger"></i> for humanity</p>
                 </div>
             </div>
         </div>
@@ -389,7 +364,5 @@ session_start();
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="assets/js/script.js"></script>
 </body>
 </html>
