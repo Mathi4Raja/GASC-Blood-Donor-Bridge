@@ -1,0 +1,17 @@
+{
+    "name": "gasc/blood-donor-bridge",
+    "description": "GASC Blood Donor Bridge System",
+    "type": "project",
+    "require": {
+        "php": ">=7.2",
+        "phpmailer/phpmailer": "^6.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

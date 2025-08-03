@@ -195,9 +195,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         
                         <div class="text-center">
-                            <a href="#" class="text-danger text-decoration-none" onclick="showForgotPassword()">
-                                Forgot your password?
-                            </a>
+                            <div class="mb-2">
+                                <a href="forgot-password.php" class="text-danger text-decoration-none">
+                                    <i class="fas fa-key me-1"></i>Forgot your password?
+                                </a>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">OR</small>
+                            </div>
+                            <div>
+                                <a href="login_new.php" class="btn btn-outline-danger btn-sm">
+                                    <i class="fas fa-mobile-alt me-1"></i>Login with OTP (Alternative)
+                                </a>
+                            </div>
                         </div>
                     </form>
                     

@@ -109,6 +109,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             sendEmail($requesterEmail, $emailSubject, $emailBody);
             
+            // Send notifications to eligible donors
+            require_once '../config/notifications.php';
+            $notificationResult = notifyDonorsForBloodRequest($requestId);
+            
+            if ($notificationResult && is_array($notificationResult)) {
+                logActivity(null, 'blood_request_notifications', 
+                    "Request #$requestId notifications: {$notificationResult['donors_notified']} donors, " .
+                    "{$notificationResult['emails_sent']} emails, {$notificationResult['sms_sent']} SMS");
+            }
+            
             // Log activity
             logActivity(null, 'blood_request_created', "New blood request: $bloodGroup in $city (Request ID: $requestId)");
             

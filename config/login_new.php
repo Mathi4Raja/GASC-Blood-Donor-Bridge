@@ -125,7 +125,7 @@ if ($step === '2' && isset($_SESSION['login_email'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alternative Login (OTP) - GASC Blood Bridge</title>
+    <title>Donor Login with OTP - GASC Blood Bridge</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
@@ -238,7 +238,7 @@ if ($step === '2' && isset($_SESSION['login_email'])) {
                         <img src="../assets/images/gobi-arts-science-logo.png" alt="GASC Logo" style="height: 50px;" class="me-2">
                         <h2 class="text-danger fw-bold mb-0">GASC Blood Bridge</h2>
                     </div>
-                    <h3 class="text-dark mb-2">Alternative Login (OTP)</h3>
+                    <h3 class="text-dark mb-2">Donor Login</h3>
                     
                     <!-- Step Indicator -->
                     <div class="step-indicator">
@@ -335,8 +335,8 @@ if ($step === '2' && isset($_SESSION['login_email'])) {
                             <a href="register.php" class="text-danger text-decoration-none fw-semibold">Register here</a>
                         </p>
                         <p class="text-muted mb-2">
-                            <a href="login.php" class="text-danger text-decoration-none">
-                                <i class="fas fa-lock me-1"></i>Use Regular Login (Password)
+                            <a href="login.php" class="text-muted text-decoration-none">
+                                <i class="fas fa-lock me-1"></i>Login with Password
                             </a>
                         </p>
                         <a href="../index.php" class="text-muted text-decoration-none">

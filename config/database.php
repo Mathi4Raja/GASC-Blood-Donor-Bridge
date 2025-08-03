@@ -232,28 +232,9 @@ function requireRole($allowedRoles) {
 
 // Email configuration using PHPMailer
 function sendEmail($to, $subject, $body, $isHTML = true) {
-    // For development, we'll log emails instead of sending
-    // In production, implement PHPMailer with SMTP
-    
-    $logsDir = '../logs';
-    $logFile = $logsDir . '/emails.log';
-    
-    // Create logs directory if it doesn't exist
-    if (!is_dir($logsDir)) {
-        if (!mkdir($logsDir, 0755, true)) {
-            error_log("Failed to create logs directory: $logsDir");
-            return true; // Return true even if logging fails
-        }
-    }
-    
-    $logMessage = "Email to: $to\nSubject: $subject\nBody: $body\n" . str_repeat("-", 50) . "\n";
-    
-    if (error_log($logMessage, 3, $logFile) === false) {
-        error_log("Failed to write to email log file: $logFile");
-    }
-    
-    // Return true for now (simulate successful sending)
-    return true;
+    // Include the enhanced email system
+    require_once __DIR__ . '/email.php';
+    return sendEmailSMTP($to, $subject, $body, $isHTML);
 }
 
 // Logging functions

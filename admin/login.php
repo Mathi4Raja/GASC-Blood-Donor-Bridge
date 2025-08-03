@@ -454,7 +454,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <!-- Forgot Password -->
                         <div class="text-center">
-                            <a href="#" class="text-danger text-decoration-none">
+                            <a href="../config/forgot-password.php" class="text-danger text-decoration-none">
                                 <i class="fas fa-key me-1"></i>Forgot Password?
                             </a>
                         </div>

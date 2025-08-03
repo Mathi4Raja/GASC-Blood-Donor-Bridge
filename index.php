@@ -72,6 +72,9 @@ session_start();
                             <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-4">
                                 <i class="fas fa-plus-circle me-2"></i>Request For Blood
                             </a>
+                            <a href="requestor/login.php" class="btn btn-warning btn-lg px-4">
+                                <i class="fas fa-search me-2"></i>Track Requests
+                            </a>
                         </div>
                     </div>
                 </div>

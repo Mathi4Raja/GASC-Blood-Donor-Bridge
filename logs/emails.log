@@ -47,3 +47,243 @@ Body:
                     </div>
                     
 --------------------------------------------------
+
+================================================================================
+[2025-08-02 15:36:57] EMAIL SIMULATION
+To: mathi.raja.333@gmail.com
+Subject: GASC Blood Bridge - Password Reset Request
+Body:
+
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
+        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
+            <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
+            <p style='color: #fee2e2; margin: 10px 0 0 0;'>Password Reset Request</p>
+        </div>
+        
+        <div style='background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+            <h2 style='color: #dc2626; margin-bottom: 20px;'>Hello Mathi Raja,</h2>
+            
+            <p style='color: #374151; font-size: 16px; line-height: 1.6;'>
+                We received a request to reset your password. Click the button below to set a new password:
+            </p>
+            
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='http://localhost/GASC Blood Donor Bridge/donor/reset-password.php?token=7fc67f7353f858155d6921c5b7a7667d19fd306c34f000d2f0d78601134450c04b29029b151fbb54e5775b69d2c8d4bf18c0682df763784ede99c9f0feffd171' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;'>
+                    🔐 Reset Password
+                </a>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px;'>
+                Or copy and paste this link in your browser:<br>
+                <span style='word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; display: block; margin: 10px 0;'>http://localhost/GASC Blood Donor Bridge/donor/reset-password.php?token=7fc67f7353f858155d6921c5b7a7667d19fd306c34f000d2f0d78601134450c04b29029b151fbb54e5775b69d2c8d4bf18c0682df763784ede99c9f0feffd171</span>
+            </p>
+            
+            <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
+                <p style='margin: 0; color: #92400e; font-size: 14px;'>
+                    <strong>⚠️ Security Notice:</strong><br>
+                    • This link expires in 1 hour<br>
+                    • If you didn't request this, please ignore this email<br>
+                    • Your password won't change until you click the link above
+                </p>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
+                Best regards,<br>
+                <strong>GASC Blood Bridge Team</strong>
+            </p>
+        </div>
+    </div>
+    
+================================================================================
+
+================================================================================
+[2025-08-02 15:37:46] EMAIL SIMULATION
+To: mathi.raja.333@gmail.com
+Subject: GASC Blood Bridge - Password Reset Request
+Body:
+
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
+        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
+            <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
+            <p style='color: #fee2e2; margin: 10px 0 0 0;'>Password Reset Request</p>
+        </div>
+        
+        <div style='background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+            <h2 style='color: #dc2626; margin-bottom: 20px;'>Hello Mathi Raja,</h2>
+            
+            <p style='color: #374151; font-size: 16px; line-height: 1.6;'>
+                We received a request to reset your password. Click the button below to set a new password:
+            </p>
+            
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='http://localhost/GASC Blood Donor Bridge/donor/reset-password.php?token=c174c5739cfdc691626b2804c0cc6222a2e2989fdc753ee094628c18d006316691ac4adf1e4cc1d329295f33febecabceebf55c976e2e1472c1849968cdc8453' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;'>
+                    🔐 Reset Password
+                </a>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px;'>
+                Or copy and paste this link in your browser:<br>
+                <span style='word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; display: block; margin: 10px 0;'>http://localhost/GASC Blood Donor Bridge/donor/reset-password.php?token=c174c5739cfdc691626b2804c0cc6222a2e2989fdc753ee094628c18d006316691ac4adf1e4cc1d329295f33febecabceebf55c976e2e1472c1849968cdc8453</span>
+            </p>
+            
+            <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
+                <p style='margin: 0; color: #92400e; font-size: 14px;'>
+                    <strong>⚠️ Security Notice:</strong><br>
+                    • This link expires in 1 hour<br>
+                    • If you didn't request this, please ignore this email<br>
+                    • Your password won't change until you click the link above
+                </p>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
+                Best regards,<br>
+                <strong>GASC Blood Bridge Team</strong>
+            </p>
+        </div>
+    </div>
+    
+================================================================================
+
+================================================================================
+[2025-08-02 15:43:24] EMAIL SIMULATION
+To: aientirely@gmail.com
+Subject: GASC Blood Bridge - Password Reset Request
+Body:
+
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
+        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
+            <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
+            <p style='color: #fee2e2; margin: 10px 0 0 0;'>Password Reset Request</p>
+        </div>
+        
+        <div style='background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+            <h2 style='color: #dc2626; margin-bottom: 20px;'>Hello System Administrator,</h2>
+            
+            <p style='color: #374151; font-size: 16px; line-height: 1.6;'>
+                We received a request to reset your password. Click the button below to set a new password:
+            </p>
+            
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='http://localhost/GASC Blood Donor Bridge/donor/reset-password.php?token=9b11f2f06e393abb7b64508cb2cf9e50e6757f5b595ab39a087f431ec84800bda0e84ed196b3239bc21b6b053564c22987027b518aacaccf77234c8e34ab4d0a' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;'>
+                    🔐 Reset Password
+                </a>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px;'>
+                Or copy and paste this link in your browser:<br>
+                <span style='word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; display: block; margin: 10px 0;'>http://localhost/GASC Blood Donor Bridge/donor/reset-password.php?token=9b11f2f06e393abb7b64508cb2cf9e50e6757f5b595ab39a087f431ec84800bda0e84ed196b3239bc21b6b053564c22987027b518aacaccf77234c8e34ab4d0a</span>
+            </p>
+            
+            <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
+                <p style='margin: 0; color: #92400e; font-size: 14px;'>
+                    <strong>⚠️ Security Notice:</strong><br>
+                    • This link expires in 1 hour<br>
+                    • If you didn't request this, please ignore this email<br>
+                    • Your password won't change until you click the link above
+                </p>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
+                Best regards,<br>
+                <strong>GASC Blood Bridge Team</strong>
+            </p>
+        </div>
+    </div>
+    
+================================================================================
+
+================================================================================
+[2025-08-02 15:47:20] EMAIL SIMULATION
+To: aientirely@gmail.com
+Subject: GASC Blood Bridge - Password Reset Request
+Body:
+
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
+        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
+            <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
+            <p style='color: #fee2e2; margin: 10px 0 0 0;'>Password Reset Request</p>
+        </div>
+        
+        <div style='background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+            <h2 style='color: #dc2626; margin-bottom: 20px;'>Hello System Administrator,</h2>
+            
+            <p style='color: #374151; font-size: 16px; line-height: 1.6;'>
+                We received a request to reset your password. Click the button below to set a new password:
+            </p>
+            
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='http://localhost/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=6092574367c6584b08dfae5cc1fbd13675f1e6a0ba8f0ee216aff13320ff05ac3fbdd30843b18a2f9d54a2e550b0d70bb4c61ad5e5d925214dd42a697fb6fdaf' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;'>
+                    🔐 Reset Password
+                </a>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px;'>
+                Or copy and paste this link in your browser:<br>
+                <span style='word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; display: block; margin: 10px 0;'>http://localhost/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=6092574367c6584b08dfae5cc1fbd13675f1e6a0ba8f0ee216aff13320ff05ac3fbdd30843b18a2f9d54a2e550b0d70bb4c61ad5e5d925214dd42a697fb6fdaf</span>
+            </p>
+            
+            <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
+                <p style='margin: 0; color: #92400e; font-size: 14px;'>
+                    <strong>⚠️ Security Notice:</strong><br>
+                    • This link expires in 1 hour<br>
+                    • If you didn't request this, please ignore this email<br>
+                    • Your password won't change until you click the link above
+                </p>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
+                Best regards,<br>
+                <strong>GASC Blood Bridge Team</strong>
+            </p>
+        </div>
+    </div>
+    
+================================================================================
+
+================================================================================
+[2025-08-02 15:47:35] EMAIL SIMULATION
+To: aientirely@gmail.com
+Subject: GASC Blood Bridge - Password Reset Request
+Body:
+
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
+        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
+            <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
+            <p style='color: #fee2e2; margin: 10px 0 0 0;'>Password Reset Request</p>
+        </div>
+        
+        <div style='background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+            <h2 style='color: #dc2626; margin-bottom: 20px;'>Hello System Administrator,</h2>
+            
+            <p style='color: #374151; font-size: 16px; line-height: 1.6;'>
+                We received a request to reset your password. Click the button below to set a new password:
+            </p>
+            
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='http://localhost/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=e83d1efd5ae97cd2e20d4bb0ab31e3693cb883ada6c656f9447aa3ab7dfe3f200c84742298875753a4d90a9a6f8817b05909eb2e64ed4c4de4f206e7cbfc8dc7' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;'>
+                    🔐 Reset Password
+                </a>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px;'>
+                Or copy and paste this link in your browser:<br>
+                <span style='word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; display: block; margin: 10px 0;'>http://localhost/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=e83d1efd5ae97cd2e20d4bb0ab31e3693cb883ada6c656f9447aa3ab7dfe3f200c84742298875753a4d90a9a6f8817b05909eb2e64ed4c4de4f206e7cbfc8dc7</span>
+            </p>
+            
+            <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
+                <p style='margin: 0; color: #92400e; font-size: 14px;'>
+                    <strong>⚠️ Security Notice:</strong><br>
+                    • This link expires in 1 hour<br>
+                    • If you didn't request this, please ignore this email<br>
+                    • Your password won't change until you click the link above
+                </p>
+            </div>
+            
+            <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
+                Best regards,<br>
+                <strong>GASC Blood Bridge Team</strong>
+            </p>
+        </div>
+    </div>
+    
+================================================================================
