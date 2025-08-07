@@ -250,8 +250,19 @@ function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) 
  * Send password reset email
  */
 function sendPasswordResetEmail($email, $resetToken, $userName) {
-    // Fix the URL path to match the actual directory structure
-    $resetLink = "http://" . $_SERVER['HTTP_HOST'] . "/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=" . $resetToken;
+    // Generate reset link - handle different server configurations
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    
+    // For XAMPP, ensure correct path
+    if ($host === 'localhost' || strpos($host, '127.0.0.1') !== false) {
+        $resetLink = "$protocol://$host/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=" . urlencode($resetToken);
+    } else {
+        $resetLink = "$protocol://$host/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=" . urlencode($resetToken);
+    }
+    
+    // Log the generated link for debugging
+    error_log("Password reset link generated: " . $resetLink);
     
     $subject = "GASC Blood Bridge - Password Reset Request";
     

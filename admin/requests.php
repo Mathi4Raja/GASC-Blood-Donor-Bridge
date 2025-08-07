@@ -176,6 +176,76 @@ $requestsStmt->bind_param($types, ...$params);
 $requestsStmt->execute();
 $requests = $requestsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $filename = 'blood_requests_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'ID', 'Patient Name', 'Blood Group', 'Units Needed', 'Hospital', 
+        'City', 'Urgency', 'Status', 'Requester Name', 'Requester Email', 
+        'Contact Number', 'Available Donors', 'Request Date', 'Required By'
+    ];
+    fputcsv($output, $headers);
+    
+    // Get all requests for export (without pagination)
+    $exportQuery = "SELECT *, 
+                    (SELECT COUNT(*) FROM users u WHERE u.blood_group = blood_requests.blood_group AND u.city = blood_requests.city AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
+                    FROM blood_requests {$whereClause} 
+                    ORDER BY 
+                      CASE urgency 
+                          WHEN 'Critical' THEN 1 
+                          WHEN 'Urgent' THEN 2 
+                          WHEN 'Normal' THEN 3 
+                      END,
+                      created_at DESC";
+    
+    $exportStmt = $db->prepare($exportQuery);
+    if (!empty($params)) {
+        // Remove the limit and offset parameters for export
+        $exportParams = array_slice($params, 0, -2);
+        $exportTypes = substr($types, 0, -2);
+        $exportStmt->bind_param($exportTypes, ...$exportParams);
+    }
+    $exportStmt->execute();
+    $exportRequests = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Write data rows
+    foreach ($exportRequests as $request) {
+        $row = [
+            $request['id'],
+            $request['patient_name'],
+            $request['blood_group'],
+            $request['units_needed'],
+            $request['hospital_name'],
+            $request['city'],
+            $request['urgency'],
+            $request['status'],
+            $request['requester_name'],
+            $request['requester_email'],
+            $request['contact_number'],
+            $request['available_donors_count'],
+            $request['created_at'],
+            $request['required_by']
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'requests_exported', "Exported " . count($exportRequests) . " blood requests to CSV");
+    
+    exit;
+}
+
 // Get blood groups for filter
 $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -338,11 +408,8 @@ $stats['critical'] = $db->query("SELECT COUNT(*) as count FROM blood_requests WH
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
+                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
+                                <i class="fas fa-download me-1"></i>Export CSV
                             </button>
                         </div>
                     </div>

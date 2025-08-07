@@ -127,6 +127,69 @@ $logsStmt->bind_param($types, ...$params);
 $logsStmt->execute();
 $logs = $logsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $filename = 'activity_logs_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'ID', 'User Name', 'User Email', 'User Type', 'Action', 
+        'Description', 'IP Address', 'User Agent', 'Created At'
+    ];
+    fputcsv($output, $headers);
+    
+    // Get all logs for export (without pagination)
+    $exportQuery = "SELECT 
+                      al.*,
+                      u.name as user_name,
+                      u.email as user_email,
+                      u.user_type
+                    FROM activity_logs al
+                    LEFT JOIN users u ON al.user_id = u.id
+                    {$whereClause}
+                    ORDER BY al.created_at DESC";
+    
+    $exportStmt = $db->prepare($exportQuery);
+    if (!empty($params)) {
+        // Remove the limit and offset parameters for export
+        $exportParams = array_slice($params, 0, -2);
+        $exportTypes = substr($types, 0, -2);
+        $exportStmt->bind_param($exportTypes, ...$exportParams);
+    }
+    $exportStmt->execute();
+    $exportLogs = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Write data rows
+    foreach ($exportLogs as $log) {
+        $row = [
+            $log['id'],
+            $log['user_name'] ?? 'System',
+            $log['user_email'] ?? 'N/A',
+            $log['user_type'] ?? 'System',
+            $log['action'],
+            $log['description'],
+            $log['ip_address'] ?? '',
+            $log['user_agent'] ?? '',
+            $log['created_at']
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'logs_exported', "Exported " . count($exportLogs) . " activity logs to CSV");
+    
+    exit;
+}
+
 // Get action types for filter
 $actionTypes = $db->query("SELECT DISTINCT action FROM activity_logs ORDER BY action")->fetch_all(MYSQLI_ASSOC);
 
@@ -306,11 +369,8 @@ $recentActions = $db->query("
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
+                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
+                                <i class="fas fa-download me-1"></i>Export CSV
                             </button>
                             <?php if ($_SESSION['user_type'] === 'admin'): ?>
                                 <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">

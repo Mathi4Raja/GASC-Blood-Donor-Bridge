@@ -54,6 +54,46 @@ $inventoryQuery = "
 
 $inventory = $db->query($inventoryQuery)->fetch_all(MYSQLI_ASSOC);
 
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $filename = 'blood_inventory_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'Blood Group', 'Total Donors', 'Available Donors', 'Can Donate Now', 
+        'Active Requests', 'Fulfilled This Month', 'Stock Status'
+    ];
+    fputcsv($output, $headers);
+    
+    // Write data rows
+    foreach ($inventory as $item) {
+        $row = [
+            $item['blood_group'],
+            $item['total_donors'],
+            $item['available_donors'],
+            $item['can_donate_now'],
+            $item['active_requests'],
+            $item['fulfilled_this_month'],
+            $item['stock_status']
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'inventory_exported', "Exported blood inventory data to CSV");
+    
+    exit;
+}
+
 // Get overall statistics
 $totalDonors = $db->query("SELECT COUNT(*) as count FROM users WHERE user_type = 'donor' AND is_verified = TRUE AND is_active = TRUE")->fetch_assoc()['count'];
 $totalAvailable = $db->query("SELECT COUNT(*) as count FROM users WHERE user_type = 'donor' AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE")->fetch_assoc()['count'];
@@ -254,11 +294,8 @@ $cityDistribution = $db->query("
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
+                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
+                                <i class="fas fa-download me-1"></i>Export CSV
                             </button>
                             <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">
                                 <i class="fas fa-sync-alt me-1"></i>Refresh

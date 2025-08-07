@@ -91,6 +91,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $action = $_POST['action'] ?? '';
         
+        if ($action === 'add_donor') {
+            // Handle add new donor
+            $roll_no = sanitizeInput($_POST['roll_no'] ?? '');
+            $name = sanitizeInput($_POST['name'] ?? '');
+            $email = sanitizeInput($_POST['email'] ?? '');
+            $phone = sanitizeInput($_POST['phone'] ?? '');
+            $blood_group = sanitizeInput($_POST['blood_group'] ?? '');
+            $gender = sanitizeInput($_POST['gender'] ?? '');
+            $date_of_birth = $_POST['date_of_birth'] ?? '';
+            $class = sanitizeInput($_POST['class'] ?? '');
+            $city = sanitizeInput($_POST['city'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $confirm_password = $_POST['confirm_password'] ?? '';
+            
+            // Validation
+            if (empty($roll_no) || empty($name) || empty($email) || empty($phone) || empty($blood_group) || 
+                empty($gender) || empty($date_of_birth) || empty($class) || empty($city) || 
+                empty($password)) {
+                throw new Exception('All fields are required.');
+            }
+            
+            if (!isValidEmail($email)) {
+                throw new Exception('Please enter a valid email address.');
+            }
+            
+            if (strlen($password) < 8) {
+                throw new Exception('Password must be at least 8 characters long.');
+            }
+            
+            if ($password !== $confirm_password) {
+                throw new Exception('Passwords do not match.');
+            }
+            
+            // Validate age (18-65 years)
+            $birthDate = new DateTime($date_of_birth);
+            $today = new DateTime();
+            $age = $today->diff($birthDate)->y;
+            
+            if ($age < 18) {
+                throw new Exception('Donor must be at least 18 years old.');
+            }
+            
+            if ($age > 65) {
+                throw new Exception('Donor must be under 65 years old for blood donation.');
+            }
+            
+            // Check if email already exists
+            $existingUser = $db->query("SELECT id FROM users WHERE email = ?", [$email]);
+            if ($existingUser->num_rows > 0) {
+                throw new Exception('An account with this email already exists.');
+            }
+            
+            // Check if roll number already exists
+            $existingRollNo = $db->query("SELECT id FROM users WHERE roll_no = ?", [$roll_no]);
+            if ($existingRollNo->num_rows > 0) {
+                throw new Exception('An account with this roll number already exists.');
+            }
+            
+            // Create new donor account
+            $hashedPassword = hashPassword($password);
+            $verificationToken = generateSecureToken(32);
+            
+            $insertSQL = "INSERT INTO users (roll_no, name, email, phone, password_hash, blood_group, gender, 
+                         date_of_birth, class, city, user_type, is_active, is_verified, email_verified,
+                         email_verification_token, created_at, updated_at) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'donor', 1, 1, 1, ?, NOW(), NOW())";
+            
+            $db->query($insertSQL, [
+                $roll_no, $name, $email, $phone, $hashedPassword, $blood_group, $gender,
+                $date_of_birth, $class, $city, $verificationToken
+            ]);
+            
+            $newDonorId = $db->getConnection()->insert_id;
+            logActivity($_SESSION['user_id'], 'donor_created_by_admin', "New donor created: $email (ID: $newDonorId)");
+            
+            $success = "New donor account created successfully for $name!";
+        }
+        
         if ($action === 'toggle_status') {
             $donorId = intval($_POST['donor_id']);
             $currentStatus = $_POST['current_status'] === 'true' ? 1 : 0;
@@ -346,6 +424,81 @@ $donorsStmt->bind_param($types, ...$params);
 $donorsStmt->execute();
 $donors = $donorsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $filename = 'donors_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'ID', 'Roll Number', 'Name', 'Email', 'Phone', 'Gender', 'Class', 
+        'Blood Group', 'City', 'Date of Birth', 'Last Donation Date', 
+        'Available', 'Verified', 'Active', 'Email Verified', 'Can Donate Now', 
+        'Registration Date'
+    ];
+    fputcsv($output, $headers);
+    
+    // Get all donors for export (without pagination)
+    $exportQuery = "SELECT id, roll_no, name, email, phone, gender, class, blood_group, city, 
+                    date_of_birth, last_donation_date, is_available, is_verified, is_active, 
+                    email_verified, created_at,
+                    CASE 
+                        WHEN last_donation_date IS NULL THEN TRUE
+                        WHEN gender = 'Female' AND DATEDIFF(CURDATE(), last_donation_date) >= 120 THEN TRUE
+                        WHEN gender != 'Female' AND DATEDIFF(CURDATE(), last_donation_date) >= 90 THEN TRUE
+                        ELSE FALSE
+                    END AS can_donate
+                    FROM users {$whereClause} 
+                    ORDER BY created_at DESC";
+    
+    $exportStmt = $db->prepare($exportQuery);
+    if (!empty($params)) {
+        // Remove the limit and offset parameters for export
+        $exportParams = array_slice($params, 0, -2);
+        $exportTypes = substr($types, 0, -2);
+        $exportStmt->bind_param($exportTypes, ...$exportParams);
+    }
+    $exportStmt->execute();
+    $exportDonors = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Write data rows
+    foreach ($exportDonors as $donor) {
+        $row = [
+            $donor['id'],
+            $donor['roll_no'],
+            $donor['name'],
+            $donor['email'],
+            $donor['phone'],
+            $donor['gender'],
+            $donor['class'],
+            $donor['blood_group'],
+            $donor['city'],
+            $donor['date_of_birth'] ?? '',
+            $donor['last_donation_date'] ?? '',
+            $donor['is_available'] ? 'Yes' : 'No',
+            $donor['is_verified'] ? 'Yes' : 'No',
+            $donor['is_active'] ? 'Yes' : 'No',
+            $donor['email_verified'] ? 'Yes' : 'No',
+            $donor['can_donate'] ? 'Yes' : 'No',
+            $donor['created_at']
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'donors_exported', "Exported " . count($exportDonors) . " donors to CSV");
+    
+    exit;
+}
+
 // Get blood groups for filter
 $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -524,11 +677,17 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
+                            <?php if (isset($_GET['action']) && $_GET['action'] === 'add'): ?>
+                                <a href="donors.php" class="btn btn-sm btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i>Back to List
+                                </a>
+                            <?php else: ?>
+                                <a href="donors.php?action=add" class="btn btn-sm btn-danger">
+                                    <i class="fas fa-user-plus me-1"></i>Add New Donor
+                                </a>
+                            <?php endif; ?>
+                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
+                                <i class="fas fa-download me-1"></i>Export CSV
                             </button>
                         </div>
                     </div>
@@ -547,6 +706,134 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                         <?php echo $error; ?>
                     </div>
                 <?php endif; ?>
+                
+                <?php if (isset($_GET['action']) && $_GET['action'] === 'add'): ?>
+                <!-- Add New Donor Form -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i>Add New Donor</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="donors.php">
+                            <input type="hidden" name="action" value="add_donor">
+                            <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="roll_no" class="form-label">Roll Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="roll_no" name="roll_no" required placeholder="e.g., CS2021001">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="name" name="name" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                                        <input type="email" class="form-control" id="email" name="email" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="class" class="form-label">Class/Course <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="class" name="class" required placeholder="e.g., B.Tech CSE, M.Tech, MBA">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="phone" class="form-label">Phone Number <span class="text-danger">*</span></label>
+                                        <input type="tel" class="form-control" id="phone" name="phone" required pattern="^[0-9]{10}$" maxlength="10" inputmode="numeric" title="Enter a 10-digit phone number" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="blood_group" class="form-label">Blood Group <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="blood_group" name="blood_group" required placeholder="e.g., A+, O-, B+" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="gender" class="form-label">Gender <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="gender" name="gender" required>
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="date_of_birth" class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" required
+                                               max="<?php echo date('Y-m-d', strtotime('-18 years')); ?>"
+                                               min="<?php echo date('Y-m-d', strtotime('-65 years')); ?>">
+                                        <div class="form-text">Must be between 18-65 years old for blood donation</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="city" class="form-label">City <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="city" name="city" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="password" name="password" minlength="8" required>
+                                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                                <i class="fas fa-eye" id="passwordIcon"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Minimum 8 characters</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="confirm_password" class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8" required>
+                                            <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                                <i class="fas fa-eye" id="confirmPasswordIcon"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="donors.php" class="btn btn-secondary d-flex align-items-center">
+                                    <i class="fas fa-arrow-left me-2"></i>Cancel
+                                </a>
+                                <button type="submit" class="btn btn-danger d-flex align-items-center">
+                                    <i class="fas fa-user-plus me-2"></i>Create Donor Account
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <?php else: ?>
+                <!-- Regular donor list view -->
                 
                 <!-- Statistics Cards -->
                 <div class="row mb-4">
@@ -814,6 +1101,7 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
             </div>
         </div>
     </div>
+    <?php endif; ?>
     
     <!-- Update Last Donation Modal -->
     <div class="modal fade" id="updateDonationModal" tabindex="-1">
@@ -999,6 +1287,119 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                 hideSidebar();
             }
         });
+        
+        // Add Donor Form Validation
+        const passwordField = document.getElementById('password');
+        const confirmPasswordField = document.getElementById('confirm_password');
+        
+        if (passwordField && confirmPasswordField) {
+            function validatePasswords() {
+                if (passwordField.value !== confirmPasswordField.value) {
+                    confirmPasswordField.setCustomValidity('Passwords do not match');
+                } else {
+                    confirmPasswordField.setCustomValidity('');
+                }
+            }
+            
+            passwordField.addEventListener('input', validatePasswords);
+            confirmPasswordField.addEventListener('input', validatePasswords);
+            
+            // Password visibility toggle
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordIcon = document.getElementById('passwordIcon');
+            const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+            const confirmPasswordIcon = document.getElementById('confirmPasswordIcon');
+            
+            if (togglePassword) {
+                togglePassword.addEventListener('click', function() {
+                    const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordField.setAttribute('type', type);
+                    
+                    // Toggle the eye icon
+                    if (type === 'password') {
+                        passwordIcon.classList.remove('fa-eye-slash');
+                        passwordIcon.classList.add('fa-eye');
+                    } else {
+                        passwordIcon.classList.remove('fa-eye');
+                        passwordIcon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
+            
+            if (toggleConfirmPassword) {
+                toggleConfirmPassword.addEventListener('click', function() {
+                    const type = confirmPasswordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                    confirmPasswordField.setAttribute('type', type);
+                    
+                    // Toggle the eye icon
+                    if (type === 'password') {
+                        confirmPasswordIcon.classList.remove('fa-eye-slash');
+                        confirmPasswordIcon.classList.add('fa-eye');
+                    } else {
+                        confirmPasswordIcon.classList.remove('fa-eye');
+                        confirmPasswordIcon.classList.add('fa-eye-slash');
+                    }
+                });
+            }
+            
+            // Age validation for date of birth
+            const dobField = document.getElementById('date_of_birth');
+            if (dobField) {
+                // Calculate and set dynamic min/max dates
+                const today = new Date();
+                const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
+                const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                
+                dobField.setAttribute('min', minDate.toISOString().split('T')[0]);
+                dobField.setAttribute('max', maxDate.toISOString().split('T')[0]);
+                
+                dobField.addEventListener('change', function() {
+                    const selectedDate = new Date(this.value);
+                    const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
+                    
+                    if (age < 18) {
+                        this.setCustomValidity('Donor must be at least 18 years old');
+                        this.classList.add('is-invalid');
+                    } else if (age > 65) {
+                        this.setCustomValidity('Donor must be under 65 years old');
+                        this.classList.add('is-invalid');
+                    } else {
+                        this.setCustomValidity('');
+                        this.classList.remove('is-invalid');
+                        this.classList.add('is-valid');
+                    }
+                });
+                
+                // Real-time validation as user types or changes date
+                dobField.addEventListener('input', function() {
+                    if (this.value) {
+                        const selectedDate = new Date(this.value);
+                        const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
+                        
+                        if (age < 18 || age > 65) {
+                            this.classList.add('is-invalid');
+                            this.classList.remove('is-valid');
+                        } else {
+                            this.classList.remove('is-invalid');
+                            this.classList.add('is-valid');
+                        }
+                    }
+                });
+            }
+            
+            // Roll number validation
+            const rollNoField = document.getElementById('roll_no');
+            if (rollNoField) {
+                rollNoField.addEventListener('input', function() {
+                    const rollNo = this.value.trim();
+                    if (rollNo.length < 3) {
+                        this.setCustomValidity('Roll number must be at least 3 characters long');
+                    } else {
+                        this.setCustomValidity('');
+                    }
+                });
+            }
+        }
     </script>
 </body>
 </html>
