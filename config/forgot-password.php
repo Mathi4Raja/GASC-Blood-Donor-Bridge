@@ -12,9 +12,6 @@ if (!in_array($step, ['1', '2', '3'])) {
     $step = '1';
 }
 
-// Debug info (remove in production)
-error_log("Debug: Step = $step, Token = " . (empty($token) ? 'empty' : substr($token, 0, 10) . '...'));
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // CSRF protection
@@ -42,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $result->fetch_assoc();
                 
                 // Generate reset token
-                $resetToken = generateSecureToken(64);
+                $resetToken = generateSecureToken(32); // 32 bytes = 64 hex chars (fits varchar(64) column)
                 $expiresAt = date('Y-m-d H:i:s', time() + 3600); // 1 hour
                 
                 // Store reset token
@@ -119,18 +116,14 @@ if ($step === '2') {
             $sql = "SELECT id, name, email FROM users WHERE reset_token = ? AND reset_token_expires > NOW()";
             $result = $db->query($sql, [$token]);
             
-            // Debug: Log token validation attempt
-            error_log("Token validation: Checking token " . substr($token, 0, 10) . "... Found " . $result->num_rows . " matching records");
-            
             if ($result->num_rows === 0) {
                 // Check if token exists but is expired
-                $expiredCheck = $db->query("SELECT id, reset_token_expires FROM users WHERE reset_token = ?", [$token]);
+                $expiredCheck = $db->query("SELECT id, email, reset_token_expires, NOW() as current_time FROM users WHERE reset_token = ?", [$token]);
                 if ($expiredCheck->num_rows > 0) {
                     $expiredData = $expiredCheck->fetch_assoc();
-                    error_log("Token found but expired. Expires at: " . $expiredData['reset_token_expires']);
-                    $error = "Your reset token has expired. Please request a new password reset.";
+                    $error = "Your reset token has expired on " . $expiredData['reset_token_expires'] . ". Current time is " . $expiredData['current_time'] . ". Please request a new password reset.";
                 } else {
-                    error_log("Token not found in database");
+                    // Token not found at all
                     $error = "Invalid reset token. Please request a new password reset.";
                 }
                 $step = '1';

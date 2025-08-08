@@ -189,9 +189,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     
     // CSV Headers
     $headers = [
-        'ID', 'Patient Name', 'Blood Group', 'Units Needed', 'Hospital', 
+        'ID', 'Patient Details', 'Blood Group', 'Units Needed', 'Hospital/Requester', 
         'City', 'Urgency', 'Status', 'Requester Name', 'Requester Email', 
-        'Contact Number', 'Available Donors', 'Request Date', 'Required By'
+        'Contact Number', 'Available Donors', 'Request Date', 'Expires At'
     ];
     fputcsv($output, $headers);
     
@@ -212,7 +212,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         // Remove the limit and offset parameters for export
         $exportParams = array_slice($params, 0, -2);
         $exportTypes = substr($types, 0, -2);
-        $exportStmt->bind_param($exportTypes, ...$exportParams);
+        
+        // Only bind parameters if we have both types and parameters
+        if (!empty($exportTypes) && !empty($exportParams)) {
+            $exportStmt->bind_param($exportTypes, ...$exportParams);
+        }
     }
     $exportStmt->execute();
     $exportRequests = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -221,19 +225,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     foreach ($exportRequests as $request) {
         $row = [
             $request['id'],
-            $request['patient_name'],
+            $request['details'] ?? 'N/A', // Using details as patient info since patient_name doesn't exist
             $request['blood_group'],
             $request['units_needed'],
-            $request['hospital_name'],
+            $request['requester_name'], // This is actually the hospital/requester name
             $request['city'],
             $request['urgency'],
             $request['status'],
             $request['requester_name'],
             $request['requester_email'],
-            $request['contact_number'],
+            $request['requester_phone'] ?? 'N/A', // Using requester_phone instead of contact_number
             $request['available_donors_count'],
             $request['created_at'],
-            $request['required_by']
+            $request['expires_at'] ?? 'N/A' // Using expires_at instead of required_by
         ];
         fputcsv($output, $row);
     }

@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php';
 
 // Check if user is logged in as admin
 requireRole(['admin']);
@@ -47,43 +48,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $messageType = 'danger';
         }
         
-    } elseif ($action === 'clear_logs') {
-        $days = (int)($_POST['clear_days'] ?? 30);
-        
-        try {
-            $stmt = $db->prepare("DELETE FROM activity_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)");
-            $stmt->bind_param('i', $days);
-            $stmt->execute();
-            
-            $deleted = $stmt->affected_rows;
-            logActivity($_SESSION['user_id'], 'clear_logs', "Cleared logs older than $days days ($deleted records)");
-            
-            $message = "Successfully deleted $deleted log records older than $days days.";
-            $messageType = 'success';
-            
-        } catch (Exception $e) {
-            $message = 'Error clearing logs: ' . $e->getMessage();
-            $messageType = 'danger';
-        }
-        
     } elseif ($action === 'backup_database') {
         try {
             $backup_file = '../database/backup_' . date('Y-m-d_H-i-s') . '.sql';
             
-            // Get database credentials from config
-            $config = include '../config/database.php';
+            // Ensure backup directory exists
+            if (!is_dir('../database')) {
+                mkdir('../database', 0755, true);
+            }
             
-            $command = "mysqldump --user={$config['username']} --password={$config['password']} --host={$config['host']} {$config['database']} > $backup_file";
+            // Database credentials (hardcoded to match database.php)
+            $host = 'localhost';
+            $username = 'root';
+            $password = '';
+            $database = 'gasc_blood_bridge';
             
-            $result = shell_exec($command);
+            // Full path to mysqldump (XAMPP installation)
+            $mysqldump_path = '"C:\\Program Files\\XAMPP\\mysql\\bin\\mysqldump.exe"';
             
-            if (file_exists($backup_file)) {
-                logActivity($_SESSION['user_id'], 'backup_database', 'Created database backup: ' . basename($backup_file));
-                $message = 'Database backup created successfully: ' . basename($backup_file);
+            // Build the command with proper escaping
+            $backup_file_full = realpath('../database') . '\\backup_' . date('Y-m-d_H-i-s') . '.sql';
+            
+            if (empty($password)) {
+                $command = "$mysqldump_path --user=$username --host=$host $database > \"$backup_file_full\"";
+            } else {
+                $command = "$mysqldump_path --user=$username --password=$password --host=$host $database > \"$backup_file_full\"";
+            }
+            
+            // Execute the command
+            $output = [];
+            $return_var = 0;
+            exec($command . ' 2>&1', $output, $return_var);
+            
+            if ($return_var === 0 && file_exists($backup_file_full) && filesize($backup_file_full) > 0) {
+                logActivity($_SESSION['user_id'], 'backup_database', 'Created database backup: ' . basename($backup_file_full));
+                $message = 'Database backup created successfully: ' . basename($backup_file_full);
                 $messageType = 'success';
             } else {
-                $message = 'Failed to create database backup. Please check server permissions.';
-                $messageType = 'warning';
+                $error_msg = !empty($output) ? implode('\n', $output) : 'Unknown error occurred';
+                $message = 'Failed to create database backup. Error: ' . $error_msg;
+                $messageType = 'danger';
             }
             
         } catch (Exception $e) {
@@ -613,35 +617,6 @@ if (is_dir('../database/')) {
                                         <?php endforeach; ?>
                                     </div>
                                 <?php endif; ?>
-                            </div>
-                        </div>
-                        
-                        <!-- Log Management -->
-                        <div class="card settings-card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-file-alt me-2"></i>Log Management
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST" action="">
-                                    <input type="hidden" name="action" value="clear_logs">
-                                    <div class="mb-3">
-                                        <label for="clear_days" class="form-label">Clear logs older than</label>
-                                        <select class="form-select" id="clear_days" name="clear_days">
-                                            <option value="7">7 days</option>
-                                            <option value="30" selected>30 days</option>
-                                            <option value="90">90 days</option>
-                                            <option value="365">1 year</option>
-                                        </select>
-                                    </div>
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-warning btn-sm" 
-                                                onclick="return confirm('Are you sure you want to clear old logs? This action cannot be undone.')">
-                                            <i class="fas fa-trash me-1"></i>Clear Old Logs
-                                        </button>
-                                    </div>
-                                </form>
                             </div>
                         </div>
                     </div>

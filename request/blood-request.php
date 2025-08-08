@@ -8,8 +8,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Invalid security token. Please try again.');
         }
         
-        // Rate limiting disabled for testing phase
-        
         // Validate input
         $requesterName = sanitizeInput($_POST['requester_name'] ?? '');
         $requesterEmail = sanitizeInput($_POST['requester_email'] ?? '');

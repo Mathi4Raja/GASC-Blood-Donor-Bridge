@@ -406,7 +406,7 @@ try {
                                             </a>
                                         </div>
                                         <div class="col-md-6 mb-2">
-                                            <a href="donors.php?filter=pending" class="btn btn-outline-info quick-action-btn w-100">
+                                            <a href="donors.php?verification=unverified" class="btn btn-outline-info quick-action-btn w-100">
                                                 <i class="fas fa-user-check me-2"></i>Verify Donors
                                             </a>
                                         </div>

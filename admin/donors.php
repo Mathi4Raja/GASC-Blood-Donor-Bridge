@@ -462,7 +462,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         // Remove the limit and offset parameters for export
         $exportParams = array_slice($params, 0, -2);
         $exportTypes = substr($types, 0, -2);
-        $exportStmt->bind_param($exportTypes, ...$exportParams);
+        
+        // Only bind parameters if we have both types and parameters
+        if (!empty($exportTypes) && !empty($exportParams)) {
+            $exportStmt->bind_param($exportTypes, ...$exportParams);
+        }
     }
     $exportStmt->execute();
     $exportDonors = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -592,6 +596,16 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
             max-width: 800px;
         }
         
+        .rounded-pill {
+            border-radius: 50rem !important;
+            transition: all 0.3s ease;
+        }
+        
+        .rounded-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
         @media (max-width: 768px) {
             .donor-card {
                 padding: 15px;
@@ -605,6 +619,15 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
             .donation-actions .btn {
                 width: 100%;
                 margin-bottom: 5px;
+            }
+            
+            .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 0.5rem !important;
+            }
+            
+            .rounded-pill {
+                width: 100%;
             }
         }
     </style>
@@ -675,21 +698,19 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                     <h1 class="h2">
                         <i class="fas fa-users text-danger me-2"></i>Manage Donors
                     </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <?php if (isset($_GET['action']) && $_GET['action'] === 'add'): ?>
-                                <a href="donors.php" class="btn btn-sm btn-secondary">
-                                    <i class="fas fa-arrow-left me-1"></i>Back to List
-                                </a>
-                            <?php else: ?>
-                                <a href="donors.php?action=add" class="btn btn-sm btn-danger">
-                                    <i class="fas fa-user-plus me-1"></i>Add New Donor
-                                </a>
-                            <?php endif; ?>
-                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
+                    <div class="d-flex gap-2 mb-2 mb-md-0">
+                        <?php if (isset($_GET['action']) && $_GET['action'] === 'add'): ?>
+                            <a href="donors.php" class="btn btn-sm btn-secondary rounded-pill px-3">
+                                <i class="fas fa-arrow-left me-1"></i>Back to List
+                            </a>
+                        <?php else: ?>
+                            <a href="donors.php?action=add" class="btn btn-sm btn-danger rounded-pill px-3">
+                                <i class="fas fa-user-plus me-1"></i>Add New Donor
+                            </a>
+                            <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="exportData()">
                                 <i class="fas fa-download me-1"></i>Export CSV
                             </button>
-                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 

@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php'; // Ensure email configuration is loaded
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -88,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userId = $db->lastInsertId();
             
             // Send verification email
-            $verificationLink = "http://" . $_SERVER['HTTP_HOST'] . "/GASC Blood Donor Bridge/donor/verify-email.php?token=" . $verificationToken;
+            $verificationLink = "http://" . $_SERVER['HTTP_HOST'] . "/GASC-Blood-Donor-Bridge/donor/verify-email.php?token=" . $verificationToken;
             $emailSubject = "GASC Blood Bridge - Verify Your Email";
             $emailBody = "
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>

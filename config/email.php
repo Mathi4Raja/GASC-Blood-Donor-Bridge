@@ -35,10 +35,8 @@ define('SMTP_FROM_NAME', 'GASC Blood Bridge');
  * Send email using PHPMailer or fallback to logging
  */
 function sendEmailSMTP($to, $subject, $body, $isHTML = true) {
-    global $phpmailer_available;
-    
-    // If PHPMailer is available, use it
-    if ($phpmailer_available && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+    // Check if PHPMailer class is available
+    if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
         return sendEmailWithPHPMailer($to, $subject, $body, $isHTML);
     } else {
         // Fallback to logging for development
@@ -62,11 +60,8 @@ function sendEmailWithPHPMailer($to, $subject, $body, $isHTML = true) {
         $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = SMTP_PORT;
         
-        // Enable debug mode for testing (set to 0 in production)
-        $mail->SMTPDebug = 2; // Show detailed debug info
-        $mail->Debugoutput = function($str, $level) {
-            error_log("PHPMailer: $str");
-        };
+        // Production mode - disable debug
+        $mail->SMTPDebug = 0;
         
         // Recipients
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
@@ -260,9 +255,6 @@ function sendPasswordResetEmail($email, $resetToken, $userName) {
     } else {
         $resetLink = "$protocol://$host/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=" . urlencode($resetToken);
     }
-    
-    // Log the generated link for debugging
-    error_log("Password reset link generated: " . $resetLink);
     
     $subject = "GASC Blood Bridge - Password Reset Request";
     

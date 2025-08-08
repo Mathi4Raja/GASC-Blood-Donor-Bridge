@@ -56,6 +56,11 @@ $inventory = $db->query($inventoryQuery)->fetch_all(MYSQLI_ASSOC);
 
 // Handle CSV export
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    // Clear any output that might have been sent and stop output buffering
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
     $filename = 'blood_inventory_export_' . date('Y-m-d_H-i-s') . '.csv';
     
     header('Content-Type: text/csv');
@@ -74,14 +79,15 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     
     // Write data rows
     foreach ($inventory as $item) {
+        // Clean all values to ensure no HTML or extra whitespace
         $row = [
-            $item['blood_group'],
-            $item['total_donors'],
-            $item['available_donors'],
-            $item['can_donate_now'],
-            $item['active_requests'],
-            $item['fulfilled_this_month'],
-            $item['stock_status']
+            trim($item['blood_group']),
+            intval($item['total_donors']),
+            intval($item['available_donors']),
+            intval($item['can_donate_now']),
+            intval($item['active_requests']),
+            intval($item['fulfilled_this_month']),
+            trim(preg_replace('/\s+/', ' ', strip_tags($item['stock_status']))) // Clean and normalize whitespace
         ];
         fputcsv($output, $row);
     }
@@ -214,6 +220,16 @@ $cityDistribution = $db->query("
             margin: 20px 0;
         }
         
+        .rounded-pill {
+            border-radius: 50rem !important;
+            transition: all 0.3s ease;
+        }
+        
+        .rounded-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
         @media (max-width: 768px) {
             .inventory-card {
                 padding: 15px;
@@ -222,6 +238,15 @@ $cityDistribution = $db->query("
             .blood-group-header {
                 font-size: 1.2rem;
                 padding: 10px;
+            }
+            
+            .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 0.5rem !important;
+            }
+            
+            .rounded-pill {
+                width: 100%;
             }
         }
     </style>
@@ -292,15 +317,13 @@ $cityDistribution = $db->query("
                     <h1 class="h2">
                         <i class="fas fa-warehouse text-danger me-2"></i>Blood Inventory
                     </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export CSV
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">
-                                <i class="fas fa-sync-alt me-1"></i>Refresh
-                            </button>
-                        </div>
+                    <div class="d-flex gap-2 mb-2 mb-md-0">
+                        <button type="button" class="btn btn-success rounded-pill px-4" onclick="window.location.href='inventory.php?export=csv'">
+                            <i class="fas fa-download me-2"></i>Export CSV
+                        </button>
+                        <button type="button" class="btn btn-primary rounded-pill px-4" onclick="location.reload()">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh
+                        </button>
                     </div>
                 </div>
                 
@@ -565,31 +588,6 @@ $cityDistribution = $db->query("
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function exportData() {
-            // Create CSV data for inventory
-            let csvContent = "Blood Group,Total Donors,Available Donors,Can Donate Now,Active Requests,Fulfilled This Month,Stock Status\n";
-            
-            // Get data from the page
-            const inventoryCards = document.querySelectorAll('.inventory-card');
-            inventoryCards.forEach(card => {
-                const bloodGroup = card.querySelector('.blood-group-header').textContent.trim();
-                const rows = card.querySelectorAll('.d-flex.justify-content-between');
-                const values = Array.from(rows).map(row => row.querySelector('strong').textContent.trim());
-                const stockStatus = card.querySelector('.badge').textContent.replace(' Stock', '');
-                
-                csvContent += `${bloodGroup},${values.join(',')},${stockStatus}\n`;
-            });
-            
-            // Download CSV
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'blood_inventory_' + new Date().toISOString().split('T')[0] + '.csv';
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-        
         // Auto-refresh every 5 minutes
         setInterval(function() {
             location.reload();
