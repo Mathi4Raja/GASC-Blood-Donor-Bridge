@@ -6,7 +6,6 @@
 
 require_once '../config/database.php';
 require_once '../config/email.php';
-require_once '../config/sms.php';
 
 /**
  * Notify eligible donors about a new blood request
@@ -47,20 +46,12 @@ function notifyDonorsForBloodRequest($requestId) {
         
         $donors = $donorResult->fetch_all(MYSQLI_ASSOC);
         $emailsSent = 0;
-        $smsSent = 0;
         
         // Send notifications to eligible donors
         foreach ($donors as $donor) {
             // Send email notification
             if (sendBloodRequestNotification($donor['email'], $donor['name'], $request)) {
                 $emailsSent++;
-            }
-            
-            // Send SMS notification (only for Critical and Urgent requests)
-            if (in_array($request['urgency'], ['Critical', 'Urgent'])) {
-                if (sendBloodRequestSMS($donor['phone'], $donor['name'], $request)) {
-                    $smsSent++;
-                }
             }
             
             // Small delay to avoid overwhelming services
@@ -70,7 +61,7 @@ function notifyDonorsForBloodRequest($requestId) {
         // Log notification results
         $totalDonors = count($donors);
         logActivity(null, 'blood_request_notifications_sent', 
-            "Request #$requestId: Notified $totalDonors donors - $emailsSent emails, $smsSent SMS");
+            "Request #$requestId: Notified $totalDonors donors - $emailsSent emails");
         
         // Update request with notification info
         $updateSQL = "UPDATE blood_requests 
@@ -81,8 +72,7 @@ function notifyDonorsForBloodRequest($requestId) {
         return [
             'success' => true,
             'donors_notified' => $totalDonors,
-            'emails_sent' => $emailsSent,
-            'sms_sent' => $smsSent
+            'emails_sent' => $emailsSent
         ];
         
     } catch (Exception $e) {
@@ -166,11 +156,9 @@ function notifyRequestorStatusUpdate($requestId, $newStatus) {
         
         $emailSent = sendEmailSMTP($request['requester_email'], $subject, $body, true);
         
-        // Send SMS for critical updates
-        if (in_array($newStatus, ['Fulfilled', 'Critical']) && isValidIndianPhone($request['requester_phone'])) {
-            $smsMessage = "GASC Blood Bridge: Your blood request #{$request['id']} status updated to $newStatus. $statusMessage";
-            sendSMS($request['requester_phone'], $smsMessage);
-        }
+        // For critical updates, email notifications are sent immediately
+        // For critical requests, you might want to add additional urgent notifications here
+        // For now, we'll rely on email notifications only
         
         logActivity(null, 'requestor_notified', "Requestor notified for request #$requestId - Status: $newStatus");
         
@@ -247,9 +235,7 @@ function sendDonationEligibilityReminders() {
                 $remindersSetn++;
             }
             
-            // Send SMS reminder
-            sendDonationReminderSMS($donor['phone'], $donor['name']);
-            
+            // Delay to avoid overwhelming email services
             usleep(200000); // 0.2 second delay
         }
         
@@ -307,16 +293,12 @@ function cleanupOldData() {
     try {
         $db = new Database();
         
-        // Clean expired OTPs
-        require_once '../config/otp.php';
-        $otpsCleaned = cleanExpiredOTPs();
-        
         // Clean old activity logs (keep 90 days)
         $logSQL = "DELETE FROM activity_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)";
         $db->query($logSQL);
         $logsCleaned = $db->lastAffectedRows();
         
-        logActivity(null, 'cleanup_completed', "Cleaned $otpsCleaned expired OTPs and $logsCleaned old activity logs");
+        logActivity(null, 'cleanup_completed', "Cleaned $logsCleaned old activity logs");
         
         return [
             'otps_cleaned' => $otpsCleaned,

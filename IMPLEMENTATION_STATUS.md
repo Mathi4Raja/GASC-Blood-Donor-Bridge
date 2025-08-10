@@ -197,7 +197,7 @@ All 8 required fields implemented with validation
 
 1. **Email System**: Configure SMTP for actual email sending
 2. **OTP System**: Implement if specifically required for donors
-3. **SMS Integration**: Add phone number verification
+3. **Email Enhancement**: Add email templates and better formatting
 4. **Mobile App API**: Add JSON endpoints for mobile apps
 5. **Advanced Analytics**: Export reports, detailed charts
 

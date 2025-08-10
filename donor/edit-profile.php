@@ -78,13 +78,8 @@ try {
     <title>Edit Profile - GASC Blood Bridge</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="includes/sidebar.css" rel="stylesheet">
     <style>
-        .profile-header {
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            color: white;
-            padding: 2rem 0;
-        }
-        
         .form-control:focus {
             border-color: #dc2626;
             box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
@@ -104,64 +99,33 @@ try {
             background-color: #f8f9fa;
             border: 1px solid #e9ecef;
         }
-        
-        /* Mobile Navigation Styles */
-        .mobile-nav-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1050;
-            background: var(--primary-red);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 18px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        
-        .mobile-nav-toggle:hover {
-            background: var(--dark-red);
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        @media (max-width: 767.98px) {
-            .profile-header {
-                padding-top: 60px;
-            }
-            
-            .container.mt-4 {
-                margin-top: 1rem !important;
-                padding-top: 20px;
-            }
-        }
     </style>
 </head>
 <body class="bg-light">
-    <!-- Mobile Navigation Toggle -->
-    <button class="mobile-nav-toggle d-lg-none" onclick="window.location.href='dashboard.php'">
-        <i class="fas fa-arrow-left"></i>
-    </button>
+    <?php include 'includes/sidebar.php'; ?>
     
-    <div class="profile-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h2><i class="fas fa-user-edit me-2"></i>Edit Profile</h2>
-                    <p class="mb-0">Update your personal information</p>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <a href="dashboard.php" class="btn btn-light">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                    </a>
-                </div>
-            </div>
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay"></div>
+    
+    <!-- Mobile header with sidebar toggle -->
+    <div class="mobile-header d-lg-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <button class="sidebar-toggle btn btn-primary">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h5 class="mb-0">Edit Profile</h5>
+            <div></div>
         </div>
     </div>
     
-    <div class="container mt-4">
+    <div class="donor-main-content">
+        <div class="container-fluid p-4">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2><i class="fas fa-user-edit me-2"></i>Edit Profile</h2>
+                <p class="text-muted mb-0">Update your personal information</p>
+            </div>
+
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <?php if ($error): ?>
@@ -294,6 +258,7 @@ try {
             </div>
         </div>
     </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -328,5 +293,6 @@ try {
             });
         });
     </script>
+    <script src="includes/sidebar.js"></script>
 </body>
 </html>

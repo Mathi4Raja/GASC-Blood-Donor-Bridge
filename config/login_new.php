@@ -235,7 +235,6 @@ if ($step === '2' && isset($_SESSION['login_email'])) {
             <div class="login-card">
                 <div class="login-header">
                     <div class="d-flex align-items-center justify-content-center mb-3">
-                        <img src="../assets/images/gobi-arts-science-logo.png" alt="GASC Logo" style="height: 50px;" class="me-2">
                         <h2 class="text-danger fw-bold mb-0">GASC Blood Bridge</h2>
                     </div>
                     <h3 class="text-dark mb-2">Donor Login</h3>
@@ -251,7 +250,7 @@ if ($step === '2' && isset($_SESSION['login_email'])) {
                         <?php if ($step === '1'): ?>
                             Enter your email to receive OTP
                         <?php else: ?>
-                            Enter the OTP sent to your email & SMS
+                            Enter the OTP sent to your email
                         <?php endif; ?>
                     </p>
                 </div>

@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -114,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($notificationResult && is_array($notificationResult)) {
                 logActivity(null, 'blood_request_notifications', 
                     "Request #$requestId notifications: {$notificationResult['donors_notified']} donors, " .
-                    "{$notificationResult['emails_sent']} emails, {$notificationResult['sms_sent']} SMS");
+                    "{$notificationResult['emails_sent']} emails sent");
             }
             
             // Log activity
@@ -506,6 +507,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </button>
                         </div>
                     </form>
+                    
+                    <div class="text-center mt-4 pt-3 border-top">
+                        <p class="text-muted mb-2">Already submitted a request?</p>
+                        <a href="../requestor/login.php" class="btn btn-outline-danger">
+                            <i class="fas fa-search me-2"></i>Track Your Requests
+                        </a>
+                    </div>
                     
                     <div class="text-center mt-3">
                         <p class="text-muted mb-2">

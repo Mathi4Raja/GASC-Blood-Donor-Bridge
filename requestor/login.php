@@ -33,38 +33,44 @@ session_start();
             text-align: center;
         }
         
-        .back-home-btn {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
+        .back-home-btn-card {
+            background: #fff;
+            color: #dc2626 !important;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
+            width: 40px;
+            height: 40px;
+            box-shadow: 0 2px 10px rgba(220,38,38,0.10);
+            border: 1px solid #f3f4f6;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            text-decoration: none;
-            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
         }
-        
-        .back-home-btn:hover {
-            background: rgba(255,255,255,0.3);
-            color: white;
-            transform: translateY(-2px);
+        .back-home-btn-card:hover {
+            background: #fee2e2;
+            color: #991b1b !important;
+            box-shadow: 0 4px 16px rgba(220,38,38,0.18);
+            text-decoration: none;
+        }
+        @media (max-width: 576px) {
+            .back-home-btn-card {
+                width: 36px;
+                height: 36px;
+                font-size: 1rem;
+                margin-top: 10px !important;
+                margin-left: 10px !important;
+            }
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <a href="../index.php" class="back-home-btn">
-            <i class="fas fa-arrow-left"></i>
-        </a>
-        
         <div class="container">
-            <div class="login-card">
+            <div class="login-card position-relative">
+                <a href="../index.php" class="back-home-btn-card position-absolute top-0 start-0 mt-3 ms-3 text-decoration-none" style="z-index:1050;">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
                 <div class="login-header">
                     <i class="fas fa-hand-holding-heart fa-3x text-danger mb-3"></i>
                     <h3 class="text-danger mb-1">Track Your Requests</h3>
@@ -106,8 +112,15 @@ session_start();
                     </form>
                     
                     <div class="text-center">
+                        <div class="alert alert-info d-flex align-items-center mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <div class="text-start">
+                                <strong>Track Your Blood Requests</strong><br>
+                                <small>Monitor status, updates, and responses from donors in real-time</small>
+                            </div>
+                        </div>
                         <p class="text-muted mb-2">Don't have any requests yet?</p>
-                        <a href="../request/blood-request.php" class="text-danger text-decoration-none">
+                        <a href="../request/blood-request.php" class="btn btn-outline-danger">
                             <i class="fas fa-plus me-1"></i>Make Your First Blood Request
                         </a>
                     </div>

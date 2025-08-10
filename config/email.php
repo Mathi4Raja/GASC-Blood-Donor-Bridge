@@ -124,54 +124,7 @@ function logEmailForDevelopment($to, $subject, $body) {
     return true;
 }
 
-/**
- * Send OTP via email
- */
-function sendOTPEmail($email, $otp, $purpose = 'login') {
-    $subject = "GASC Blood Bridge - Your OTP Code";
-    
-    $body = "
-    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
-        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
-            <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
-            <p style='color: #fee2e2; margin: 10px 0 0 0;'>Gobi Arts and Science College</p>
-        </div>
-        
-        <div style='background: white; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
-            <h2 style='color: #dc2626; margin-bottom: 20px;'>Your OTP Code</h2>
-            
-            <p style='color: #374151; font-size: 16px; line-height: 1.6;'>
-                Use the following OTP to complete your " . ($purpose === 'login' ? 'login' : $purpose) . ":
-            </p>
-            
-            <div style='background: #fef2f2; border: 2px dashed #dc2626; padding: 20px; text-align: center; margin: 30px 0; border-radius: 8px;'>
-                <h1 style='color: #dc2626; font-size: 36px; margin: 0; letter-spacing: 5px; font-family: monospace;'>$otp</h1>
-            </div>
-            
-            <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
-                <p style='margin: 0; color: #92400e; font-size: 14px;'>
-                    <strong>⚠️ Security Notice:</strong><br>
-                    • This OTP is valid for 10 minutes only<br>
-                    • Do not share this code with anyone<br>
-                    • If you didn't request this, please ignore this email
-                </p>
-            </div>
-            
-            <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
-                Best regards,<br>
-                <strong>GASC Blood Bridge Team</strong><br>
-                Saving lives, one donation at a time 🩸❤️
-            </p>
-        </div>
-        
-        <div style='text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;'>
-            This is an automated message. Please do not reply to this email.
-        </div>
-    </div>
-    ";
-    
-    return sendEmailSMTP($email, $subject, $body, true);
-}
+
 
 /**
  * Send notification email to donors about blood requests
@@ -242,19 +195,21 @@ function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) 
 }
 
 /**
- * Send password reset email
+ * Send password reset email with role-specific links
  */
-function sendPasswordResetEmail($email, $resetToken, $userName) {
+function sendPasswordResetEmail($email, $resetToken, $userName, $userType = 'donor') {
     // Generate reset link - handle different server configurations
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     
-    // For XAMPP, ensure correct path
-    if ($host === 'localhost' || strpos($host, '127.0.0.1') !== false) {
-        $resetLink = "$protocol://$host/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=" . urlencode($resetToken);
+    // Generate role-specific reset link
+    if ($userType === 'admin' || $userType === 'moderator') {
+        $resetPath = "/GASC-Blood-Donor-Bridge/admin/forgot-password.php?step=2&token=" . urlencode($resetToken);
     } else {
-        $resetLink = "$protocol://$host/GASC-Blood-Donor-Bridge/config/forgot-password.php?step=2&token=" . urlencode($resetToken);
+        $resetPath = "/GASC-Blood-Donor-Bridge/donor/forgot-password.php?step=2&token=" . urlencode($resetToken);
     }
+    
+    $resetLink = "$protocol://$host$resetPath";
     
     $subject = "GASC Blood Bridge - Password Reset Request";
     
@@ -301,5 +256,12 @@ function sendPasswordResetEmail($email, $resetToken, $userName) {
     ";
     
     return sendEmailSMTP($email, $subject, $body, true);
+}
+
+/**
+ * Simple wrapper for sending emails
+ */
+function sendEmail($to, $subject, $body, $isHTML = false) {
+    return sendEmailSMTP($to, $subject, $body, $isHTML);
 }
 ?>

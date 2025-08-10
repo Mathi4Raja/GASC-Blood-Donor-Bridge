@@ -40,7 +40,7 @@ try {
         echo "3. Cleaning up old data..." . PHP_EOL;
         $cleanupResult = cleanupOldData();
         if ($cleanupResult) {
-            echo "   → Cleaned {$cleanupResult['otps_cleaned']} expired OTPs" . PHP_EOL;
+            echo "   → Cleaned {$cleanupResult['otps_cleaned']} expired password reset OTPs" . PHP_EOL;
             echo "   → Cleaned {$cleanupResult['logs_cleaned']} old activity logs" . PHP_EOL;
         } else {
             echo "   → Cleanup failed" . PHP_EOL;

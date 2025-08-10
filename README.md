@@ -128,7 +128,7 @@ GASC Blood Donor Bridge/
 │   └── images/              # Logo and graphics
 ├── donor/
 │   ├── register.php         # Donor registration
-│   ├── login.php           # Donor login with OTP
+│   ├── login.php           # Donor login with password
 │   ├── dashboard.php       # Donor dashboard
 │   └── verify-email.php    # Email verification
 ├── admin/
@@ -237,7 +237,7 @@ Configure email settings in the `sendEmail()` function for production use.
 
 ## 📝 Future Enhancements
 
-- SMS notification integration
+- Email notification system
 - Blood bank inventory management
 - Mobile app development
 - Advanced reporting system

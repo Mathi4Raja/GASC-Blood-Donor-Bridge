@@ -72,9 +72,6 @@ session_start();
                             <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-4">
                                 <i class="fas fa-plus-circle me-2"></i>Request For Blood
                             </a>
-                            <a href="requestor/login.php" class="btn btn-warning btn-lg px-4">
-                                <i class="fas fa-search me-2"></i>Track Requests
-                            </a>
                         </div>
                     </div>
                 </div>
@@ -367,5 +364,50 @@ session_start();
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Auto-close hamburger menu script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('#navbarNav');
+            const navLinks = document.querySelectorAll('#navbarNav .nav-link');
+            
+            // Auto-close when clicking on navigation links
+            navLinks.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (navbarCollapse.classList.contains('show')) {
+                        const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                            toggle: false
+                        });
+                        bsCollapse.hide();
+                    }
+                });
+            });
+            
+            // Auto-close when clicking outside the navbar
+            document.addEventListener('click', function(event) {
+                const isClickInsideNav = navbarCollapse.contains(event.target) || navbarToggler.contains(event.target);
+                
+                if (!isClickInsideNav && navbarCollapse.classList.contains('show')) {
+                    const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                        toggle: false
+                    });
+                    bsCollapse.hide();
+                }
+            });
+            
+            // Auto-close when scrolling (optional - uncomment if desired)
+            /*
+            window.addEventListener('scroll', function() {
+                if (navbarCollapse.classList.contains('show')) {
+                    const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                        toggle: false
+                    });
+                    bsCollapse.hide();
+                }
+            });
+            */
+        });
+    </script>
 </body>
 </html>

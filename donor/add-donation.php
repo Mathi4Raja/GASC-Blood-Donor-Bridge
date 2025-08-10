@@ -67,18 +67,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Add Donation Record - GASC Blood Bridge</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="includes/sidebar.css" rel="stylesheet">
     <style>
-        /* Mobile Navigation Styles */
-        .mobile-nav-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1050;
-            background: #dc2626;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
+        .form-control:focus {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
+        }
+        
+        .btn-primary {
+            background-color: #dc2626;
+            border-color: #dc2626;
+        }
+        
+        .btn-primary:hover {
+            background-color: #991b1b;
+            border-color: #991b1b;
+        }
+    </style>
             font-size: 18px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -87,32 +92,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .mobile-nav-toggle:hover {
             background: #991b1b;
             color: white;
-            transform: scale(1.05);
-        }
-        
-        @media (max-width: 767.98px) {
-            .container.mt-5 {
-                margin-top: 80px !important;
-                padding-top: 20px;
-            }
-        }
     </style>
 </head>
 <body class="bg-light">
-    <!-- Mobile Navigation Toggle -->
-    <button class="mobile-nav-toggle d-lg-none" onclick="window.location.href='dashboard.php'">
-        <i class="fas fa-arrow-left"></i>
-    </button>
+    <?php include 'includes/sidebar.php'; ?>
     
-    <div class="container mt-5">
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay"></div>
+    
+    <!-- Mobile header with sidebar toggle -->
+    <div class="mobile-header d-lg-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <button class="sidebar-toggle btn btn-primary">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h5 class="mb-0">Add Donation</h5>
+            <div></div>
+        </div>
+    </div>
+    
+    <div class="donor-main-content">
+        <div class="container-fluid p-4">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2><i class="fas fa-plus-circle me-2"></i>Add Donation Record</h2>
+                <p class="text-muted mb-0">Record your blood donation for tracking and verification</p>
+            </div>
+
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="card shadow">
-                    <div class="card-header bg-danger text-white">
-                        <h4 class="mb-0">
-                            <i class="fas fa-plus-circle me-2"></i>Add Donation Record
-                        </h4>
-                    </div>
                     <div class="card-body">
                         <?php if ($error): ?>
                             <div class="alert alert-danger">
@@ -188,7 +197,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="includes/sidebar.js"></script>
 </body>
 </html>

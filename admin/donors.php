@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php';
 
 // Check if user is logged in as admin or moderator
 requireRole(['admin', 'moderator']);

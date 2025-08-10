@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once '../config/database.php';
 
 if (isset($_SESSION['requestor_email'])) {
     logActivity(null, 'requestor_logout', "Requestor logged out: " . $_SESSION['requestor_email']);

@@ -86,13 +86,8 @@ try {
     <title>Settings - GASC Blood Bridge</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="includes/sidebar.css" rel="stylesheet">
     <style>
-        .settings-header {
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            color: white;
-            padding: 2rem 0;
-        }
-        
         .settings-card {
             border: none;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -131,77 +126,46 @@ try {
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
-        
-        /* Mobile Navigation Styles */
-        .mobile-nav-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1050;
-            background: var(--primary-red);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 18px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        
-        .mobile-nav-toggle:hover {
-            background: var(--dark-red);
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        @media (max-width: 767.98px) {
-            .settings-header {
-                padding-top: 60px;
-            }
-            
-            .container.mt-4 {
-                margin-top: 1rem !important;
-                padding-top: 20px;
-            }
-        }
     </style>
 </head>
 <body class="bg-light">
-    <!-- Mobile Navigation Toggle -->
-    <button class="mobile-nav-toggle d-lg-none" onclick="window.location.href='dashboard.php'">
-        <i class="fas fa-arrow-left"></i>
-    </button>
+    <?php include 'includes/sidebar.php'; ?>
     
-    <div class="settings-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h2><i class="fas fa-cog me-2"></i>Settings & Preferences</h2>
-                    <p class="mb-0">Manage your account settings and donation preferences</p>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <a href="dashboard.php" class="btn btn-light">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                    </a>
-                </div>
-            </div>
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay"></div>
+    
+    <!-- Mobile header with sidebar toggle -->
+    <div class="mobile-header d-lg-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <button class="sidebar-toggle btn btn-primary">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h5 class="mb-0">Settings</h5>
+            <div></div>
         </div>
     </div>
     
-    <div class="container mt-4">
-        <?php if ($error): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($error); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <div class="donor-main-content">
+        <div class="container-fluid p-4">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2><i class="fas fa-cog me-2"></i>Settings & Preferences</h2>
+                <p class="text-muted mb-0">Manage your account settings and donation preferences</p>
             </div>
-        <?php endif; ?>
-        
-        <?php if ($success): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($success); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
+
+            <?php if ($error): ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($error); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($success): ?>
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($success); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
         
         <div class="row">
             <!-- Availability Settings -->
@@ -355,51 +319,11 @@ try {
                 </div>
             </div>
         </div>
-        
-        <!-- Quick Actions -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card settings-card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-bolt text-danger me-2"></i>
-                            Quick Actions
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row text-center">
-                            <div class="col-md-3 mb-3">
-                                <a href="add-donation.php" class="btn btn-outline-success w-100">
-                                    <i class="fas fa-plus-circle d-block mb-2" style="font-size: 2rem;"></i>
-                                    Add Donation
-                                </a>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <a href="blood-requests.php" class="btn btn-outline-danger w-100">
-                                    <i class="fas fa-hand-holding-heart d-block mb-2" style="font-size: 2rem;"></i>
-                                    Find Requests
-                                </a>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <a href="dashboard.php#history" class="btn btn-outline-primary w-100">
-                                    <i class="fas fa-history d-block mb-2" style="font-size: 2rem;"></i>
-                                    View History
-                                </a>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <a href="dashboard.php#profile" class="btn btn-outline-info w-100">
-                                    <i class="fas fa-user d-block mb-2" style="font-size: 2rem;"></i>
-                                    My Profile
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="includes/sidebar.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Password form validation

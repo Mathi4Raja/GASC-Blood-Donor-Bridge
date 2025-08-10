@@ -197,6 +197,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: all 0.3s ease;
         }
         
+        /* Add padding for password field with toggle button */
+        .form-floating.position-relative .form-control {
+            padding-right: 50px;
+        }
+        
+        /* Adjust when Bootstrap validation is active */
+        .was-validated .form-floating.position-relative .form-control:valid {
+            padding-right: 80px;
+        }
+        
         .form-floating .form-control:focus {
             border-color: #dc2626;
             box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
@@ -454,7 +464,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <!-- Forgot Password -->
                         <div class="text-center">
-                            <a href="../config/forgot-password.php" class="text-danger text-decoration-none">
+                            <a href="forgot-password.php" class="text-danger text-decoration-none">
                                 <i class="fas fa-key me-1"></i>Forgot Password?
                             </a>
                         </div>

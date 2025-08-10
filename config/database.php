@@ -231,12 +231,6 @@ function requireRole($allowedRoles) {
 }
 
 // Email configuration using PHPMailer
-function sendEmail($to, $subject, $body, $isHTML = true) {
-    // Include the enhanced email system
-    require_once __DIR__ . '/email.php';
-    return sendEmailSMTP($to, $subject, $body, $isHTML);
-}
-
 // Logging functions
 function logActivity($userId, $action, $details = '') {
     try {

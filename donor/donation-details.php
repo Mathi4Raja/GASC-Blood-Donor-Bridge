@@ -40,13 +40,8 @@ try {
     <title>Donation Details - GASC Blood Bridge</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="includes/sidebar.css" rel="stylesheet">
     <style>
-        .donation-header {
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            color: white;
-            padding: 2rem 0;
-        }
-        
         .detail-card {
             border: none;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -94,83 +89,52 @@ try {
             font-weight: bold;
             font-size: 1.2rem;
         }
-        
-        /* Mobile Navigation Styles */
-        .mobile-nav-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1050;
-            background: #dc2626;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 18px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        
-        .mobile-nav-toggle:hover {
-            background: #991b1b;
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        @media (max-width: 767.98px) {
-            .container.mt-5 {
-                margin-top: 80px !important;
-                padding-top: 20px;
-            }
-            
-            .container.mt-4 {
-                margin-top: 1rem !important;
-                padding-top: 20px;
-            }
-        }
     </style>
 </head>
 <body class="bg-light">
-    <!-- Mobile Navigation Toggle -->
-    <button class="mobile-nav-toggle d-lg-none" onclick="window.location.href='dashboard.php'">
+    <?php include 'includes/sidebar.php'; ?>
+    
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay"></div>
+    
+    <!-- Mobile header with sidebar toggle -->
+    <div class="mobile-header d-lg-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <button class="sidebar-toggle btn btn-primary">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h5 class="mb-0">Donation Details</h5>
+            <div></div>
+        </div>
+    </div>
+    
+    <div class="donor-main-content">
+        <div class="container-fluid p-4">
         <i class="fas fa-arrow-left"></i>
     </button>
     
-    <?php if ($error): ?>
-        <div class="container mt-5">
-            <div class="row justify-content-center">
-                <div class="col-md-6">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <i class="fas fa-exclamation-triangle text-danger" style="font-size: 48px;"></i>
-                            <h4 class="text-danger mt-3">Error</h4>
-                            <p class="text-muted"><?php echo htmlspecialchars($error); ?></p>
-                            <a href="dashboard.php" class="btn btn-primary">
-                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                            </a>
+    <!-- Page Header -->
+            <div class="page-header">
+                <h2><i class="fas fa-heart me-2"></i>Donation Details</h2>
+                <p class="text-muted mb-0">Complete information about your blood donation</p>
+            </div>
+
+            <?php if ($error): ?>
+                <div class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="card detail-card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-exclamation-triangle text-warning fa-3x mb-3"></i>
+                                <h5>Error Loading Donation Details</h5>
+                                <p class="text-muted"><?php echo htmlspecialchars($error); ?></p>
+                                <a href="dashboard.php" class="btn btn-primary">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    <?php else: ?>
-        <div class="donation-header">
-            <div class="container">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h2><i class="fas fa-heart me-2"></i>Donation Details</h2>
-                        <p class="mb-0">Complete information about your blood donation</p>
-                    </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="dashboard.php#history" class="btn btn-light">
-                            <i class="fas fa-arrow-left me-2"></i>Back to History
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="container mt-4">
+            <?php else: ?>
             <div class="row">
                 <!-- Main Details -->
                 <div class="col-lg-8 mb-4">
@@ -356,5 +320,10 @@ try {
             }
         }
     </style>
+    </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="includes/sidebar.js"></script>
 </body>
 </html>

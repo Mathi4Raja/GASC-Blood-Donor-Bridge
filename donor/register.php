@@ -1,6 +1,5 @@
 <?php
 require_once '../config/database.php';
-require_once '../config/email.php'; // Ensure email configuration is loaded
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -40,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (!isValidPhone($phone)) {
             throw new Exception('Please enter a valid 10-digit phone number.');
+        }
+        
+        if (!isValidBloodGroup($bloodGroup)) {
+            throw new Exception('Please enter a valid blood group (e.g., A+, O-, B+).');
         }
         
         // Validate date of birth
@@ -89,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userId = $db->lastInsertId();
             
             // Send verification email
-            $verificationLink = "http://" . $_SERVER['HTTP_HOST'] . "/GASC-Blood-Donor-Bridge/donor/verify-email.php?token=" . $verificationToken;
+            $verificationLink = "http://" . $_SERVER['HTTP_HOST'] . "/GASC Blood Donor Bridge/donor/verify-email.php?token=" . $verificationToken;
             $emailSubject = "GASC Blood Bridge - Verify Your Email";
             $emailBody = "
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
@@ -386,7 +389,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </label>
                                     <input type="text" class="form-control" id="blood_group" name="blood_group" 
                                            value="<?php echo $bloodGroup ?? ''; ?>" required
-                                           placeholder="e.g., A+, O-, B+" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+                                           placeholder="e.g., A+, O-, B+">
                                     <div class="invalid-feedback">Please provide your blood group (e.g., A+, O-, B+).</div>
                                 </div>
                                 
@@ -406,13 +409,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <label for="password" class="form-label">
                                         <i class="fas fa-lock text-danger me-1"></i>Password *
                                     </label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="password" name="password" required
-                                               placeholder="At least 8 characters">
-                                        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
-                                            <i class="fas fa-eye" id="passwordIcon"></i>
-                                        </button>
-                                    </div>
+                                    <input type="password" class="form-control" id="password" name="password" required
+                                           placeholder="At least 8 characters">
                                     <div class="password-strength" id="passwordStrength"></div>
                                     <div class="invalid-feedback">Password must be at least 8 characters long.</div>
                                 </div>
@@ -421,13 +419,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <label for="confirm_password" class="form-label">
                                         <i class="fas fa-lock text-danger me-1"></i>Confirm Password *
                                     </label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required
-                                               placeholder="Repeat your password">
-                                        <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
-                                            <i class="fas fa-eye" id="confirmPasswordIcon"></i>
-                                        </button>
-                                    </div>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required
+                                           placeholder="Repeat your password">
                                     <div class="invalid-feedback">Passwords do not match.</div>
                                 </div>
                             </div>
@@ -471,44 +464,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const confirmPasswordInput = document.getElementById('confirm_password');
             const strengthIndicator = document.getElementById('passwordStrength');
             
-            // Password visibility toggle
-            const togglePassword = document.getElementById('togglePassword');
-            const passwordIcon = document.getElementById('passwordIcon');
-            const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
-            const confirmPasswordIcon = document.getElementById('confirmPasswordIcon');
-            
-            if (togglePassword) {
-                togglePassword.addEventListener('click', function() {
-                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                    passwordInput.setAttribute('type', type);
-                    
-                    // Toggle the eye icon
-                    if (type === 'password') {
-                        passwordIcon.classList.remove('fa-eye-slash');
-                        passwordIcon.classList.add('fa-eye');
-                    } else {
-                        passwordIcon.classList.remove('fa-eye');
-                        passwordIcon.classList.add('fa-eye-slash');
-                    }
-                });
-            }
-            
-            if (toggleConfirmPassword) {
-                toggleConfirmPassword.addEventListener('click', function() {
-                    const type = confirmPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                    confirmPasswordInput.setAttribute('type', type);
-                    
-                    // Toggle the eye icon
-                    if (type === 'password') {
-                        confirmPasswordIcon.classList.remove('fa-eye-slash');
-                        confirmPasswordIcon.classList.add('fa-eye');
-                    } else {
-                        confirmPasswordIcon.classList.remove('fa-eye');
-                        confirmPasswordIcon.classList.add('fa-eye-slash');
-                    }
-                });
-            }
-            
             // Password strength indicator
             passwordInput.addEventListener('input', function() {
                 const password = this.value;
@@ -548,51 +503,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     this.setCustomValidity('Please enter a valid 10-digit phone number starting with 6-9');
                 }
             });
-            
-            // Date of birth validation with dynamic constraints
-            const dobField = document.getElementById('date_of_birth');
-            if (dobField) {
-                // Calculate and set dynamic min/max dates
-                const today = new Date();
-                const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
-                const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-                
-                dobField.setAttribute('min', minDate.toISOString().split('T')[0]);
-                dobField.setAttribute('max', maxDate.toISOString().split('T')[0]);
-                
-                dobField.addEventListener('change', function() {
-                    const selectedDate = new Date(this.value);
-                    const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
-                    
-                    if (age < 18) {
-                        this.setCustomValidity('You must be at least 18 years old to register as a donor');
-                        this.classList.add('is-invalid');
-                    } else if (age > 65) {
-                        this.setCustomValidity('Maximum age for blood donation is 65 years');
-                        this.classList.add('is-invalid');
-                    } else {
-                        this.setCustomValidity('');
-                        this.classList.remove('is-invalid');
-                        this.classList.add('is-valid');
-                    }
-                });
-                
-                // Real-time validation as user changes date
-                dobField.addEventListener('input', function() {
-                    if (this.value) {
-                        const selectedDate = new Date(this.value);
-                        const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
-                        
-                        if (age < 18 || age > 65) {
-                            this.classList.add('is-invalid');
-                            this.classList.remove('is-valid');
-                        } else {
-                            this.classList.remove('is-invalid');
-                            this.classList.add('is-valid');
-                        }
-                    }
-                });
-            }
             
             // Form submission
             form.addEventListener('submit', function(e) {

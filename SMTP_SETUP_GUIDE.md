@@ -146,7 +146,7 @@ If SMTP fails, the system will:
 4. Retry on next scheduled task run
 
 ### **Email Types Supported:**
-- ✅ OTP verification emails
+- ✅ Password reset OTP verification emails
 - ✅ Blood request notifications  
 - ✅ Password reset emails
 - ✅ Account verification emails
