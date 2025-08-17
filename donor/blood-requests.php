@@ -87,51 +87,55 @@ $totalPages = ceil($totalRequests / $limit);
     <link href="../assets/css/style.css" rel="stylesheet">
     <link href="includes/sidebar.css" rel="stylesheet">
     <style>
+        /* Request list styles */
         .urgency-critical { border-left-color: #dc2626; }
         .urgency-urgent { border-left-color: #f59e0b; }
         .urgency-normal { border-left-color: #10b981; }
-        
+
         .stats-banner {
             background: rgba(255,255,255,0.1);
             border-radius: 10px;
             padding: 1rem;
             margin-top: 1rem;
         }
-        
-        .pagination .page-link {
-            color: #dc2626;
-        }
-        
+
+        .pagination .page-link { color: #dc2626; }
         .pagination .page-item.active .page-link {
             background-color: #dc2626;
             border-color: #dc2626;
         }
-        
+
         .btn-danger {
             background-color: #dc2626;
             border-color: #dc2626;
         }
-    </style>
+
+        /* Mobile navigation toggle (header button on small screens) */
+        .mobile-nav-toggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1050;
+            background: var(--primary-red, #dc2626);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
             font-size: 18px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
-        
+
         .mobile-nav-toggle:hover {
-            background: var(--dark-red);
+            background: var(--dark-red, #991b1b);
             color: white;
             transform: scale(1.05);
         }
-        
+
         @media (max-width: 767.98px) {
-            .requests-header {
-                padding-top: 60px;
-            }
-            
-            .container.mt-4 {
-                margin-top: 1rem !important;
-                padding-top: 20px;
-            }
+            .requests-header { padding-top: 60px; }
+            .container.mt-4 { margin-top: 1rem !important; padding-top: 20px; }
+        }
     </style>
 </head>
 <body class="bg-light">
