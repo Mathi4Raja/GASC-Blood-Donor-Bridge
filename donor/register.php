@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
