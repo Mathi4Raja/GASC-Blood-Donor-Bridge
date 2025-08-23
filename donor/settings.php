@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once 'includes/sidebar-utils.php';
 
 // Check if user is logged in as donor
 requireRole(['donor']);
@@ -7,6 +8,11 @@ requireRole(['donor']);
 $error = null;
 $success = null;
 $donor = null;
+
+// Handle success message from redirect
+if (isset($_GET['success'])) {
+    $success = htmlspecialchars($_GET['success']);
+}
 
 try {
     $db = new Database();
@@ -31,9 +37,16 @@ try {
                     $updateSQL = "UPDATE users SET is_available = ? WHERE id = ?";
                     $db->query($updateSQL, [$isAvailable, $_SESSION['user_id']]);
                     
+                    // Clear sidebar cache to reflect availability change
+                    clearSidebarCache();
+                    
                     logActivity($_SESSION['user_id'], 'availability_updated', "Availability status updated to " . ($isAvailable ? 'available' : 'unavailable'));
                     $success = "Availability status updated successfully!";
                     $donor['is_available'] = $isAvailable;
+                    
+                    // Redirect to refresh sidebar data
+                    header("Location: settings.php?refresh_sidebar=1&success=" . urlencode($success));
+                    exit;
                     break;
                     
                 case 'change_password':

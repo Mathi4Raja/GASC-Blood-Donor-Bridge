@@ -4,6 +4,7 @@ date_default_timezone_set('Asia/Kolkata');
 ?>
 <?php
 require_once '../config/database.php';
+require_once 'includes/sidebar-utils.php';
 
 // Check if user is logged in as donor
 requireRole(['donor']);
@@ -54,8 +55,15 @@ try {
             
             logActivity($_SESSION['user_id'], 'marked_available', "Donor marked themselves as available");
             
+            // Clear sidebar cache to reflect availability change
+            clearSidebarCache();
+            
             $success = "You have been marked as available for blood donation.";
             $donor['is_available'] = true;
+            
+            // Redirect to refresh sidebar
+            header("Location: dashboard.php?refresh_sidebar=1");
+            exit;
         }
     }
     
@@ -67,8 +75,15 @@ try {
             
             logActivity($_SESSION['user_id'], 'unmarked_available', "Donor marked themselves as unavailable");
             
+            // Clear sidebar cache to reflect availability change
+            clearSidebarCache();
+            
             $success = "You have been marked as unavailable for blood donation.";
             $donor['is_available'] = false;
+            
+            // Redirect to refresh sidebar
+            header("Location: dashboard.php?refresh_sidebar=1");
+            exit;
         }
     }
     
@@ -176,6 +191,21 @@ try {
         }
         .section-cards.active { 
             display: block; 
+        }
+        
+        /* Clickable Donation Items */
+        .donation-item {
+            transition: all 0.2s ease;
+        }
+        
+        .donation-item:hover {
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            transform: translateX(2px);
+        }
+        
+        .donation-item:active {
+            transform: translateX(1px);
         }
 
     </style>
@@ -446,7 +476,10 @@ try {
                                         </div>
                                     <?php else: ?>
                                         <?php foreach ($donationHistory as $donation): ?>
-                                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom donation-item" 
+                                                 style="cursor: pointer;" 
+                                                 onclick="viewDonationDetails(<?php echo $donation['id']; ?>)"
+                                                 title="Click to view donation details">
                                                 <div>
                                                     <strong><?php echo date('M d, Y', strtotime($donation['donation_date'])); ?></strong>
                                                     <?php if ($donation['location']): ?>
@@ -455,6 +488,7 @@ try {
                                                 </div>
                                                 <div class="text-end">
                                                     <i class="fas fa-heart text-danger"></i>
+                                                    <i class="fas fa-eye text-muted ms-2" style="font-size: 0.8em;"></i>
                                                 </div>
                                             </div>
                                         <?php endforeach; ?>

@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once 'includes/sidebar-utils.php';
 
 // Check if user is logged in as donor
 requireRole(['donor']);
@@ -55,6 +56,9 @@ try {
             logActivity($_SESSION['user_id'], 'profile_updated', "Profile information updated");
             
             $success = "Profile updated successfully!";
+            
+            // Clear sidebar cache to force refresh of profile data
+            clearSidebarCache();
             
             // Refresh donor data
             $result = $db->query($sql, [$_SESSION['user_id']]);

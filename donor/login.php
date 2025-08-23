@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         function showForgotPassword() {
-            alert('Password reset functionality will be implemented soon. Please contact support for assistance.');
+            window.location.href = 'forgot-password.php';
         }
         
         // Auto-focus email input

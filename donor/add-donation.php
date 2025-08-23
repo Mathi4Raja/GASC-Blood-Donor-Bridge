@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once 'includes/sidebar-utils.php';
 
 // Check if user is logged in as donor
 requireRole(['donor']);
@@ -45,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Update user's last donation date
             $updateUserSQL = "UPDATE users SET last_donation_date = ? WHERE id = ?";
             $db->query($updateUserSQL, [$donationDate, $_SESSION['user_id']]);
+            
+            // Clear sidebar cache since last donation date affects eligibility status
+            clearSidebarCache();
             
             logActivity($_SESSION['user_id'], 'donation_added', "Added donation record for $donationDate");
             

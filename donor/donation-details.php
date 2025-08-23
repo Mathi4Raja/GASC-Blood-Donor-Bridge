@@ -99,6 +99,25 @@ try {
         <i class="fas fa-arrow-left"></i>
     </button>
     
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="dashboard.php" class="text-decoration-none">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="donation-history.php" class="text-decoration-none">
+                    <i class="fas fa-history me-1"></i>Donation History
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                <i class="fas fa-heart me-1"></i>Donation Details
+            </li>
+        </ol>
+    </nav>
+    
     <!-- Page Header -->
             <div class="page-header">
                 <h2><i class="fas fa-heart me-2"></i>Donation Details</h2>

@@ -1,6 +1,31 @@
 <?php
-// Get donor information for sidebar
-if (!isset($donor) || !$donor) {
+// Include sidebar utilities
+require_once __DIR__ . '/sidebar-utils.php';
+
+// Check for force refresh parameter
+if (isset($_GET['refresh_sidebar'])) {
+    clearSidebarCache();
+}
+
+// Get donor information for sidebar - always fetch fresh data for consistency
+// Use session cache to avoid repeated database calls within the same session
+$sidebarDonor = null;
+$sidebarCanDonate = false;
+
+// Cache key for this session
+$cacheKey = 'sidebar_donor_' . ($_SESSION['user_id'] ?? 'unknown');
+
+// Check if we have cached data and it's still valid (cache for 30 seconds)
+if (isset($_SESSION[$cacheKey]) && isset($_SESSION[$cacheKey . '_time'])) {
+    $cacheAge = time() - $_SESSION[$cacheKey . '_time'];
+    if ($cacheAge < 30) { // 30 seconds cache for better responsiveness
+        $sidebarDonor = $_SESSION[$cacheKey];
+        $sidebarCanDonate = $_SESSION[$cacheKey . '_can_donate'] ?? false;
+    }
+}
+
+// If no valid cache, fetch fresh data
+if (!$sidebarDonor) {
     try {
         // Ensure we have a user session
         if (!isset($_SESSION['user_id'])) {
@@ -11,33 +36,38 @@ if (!isset($donor) || !$donor) {
         $sql = "SELECT id, roll_no, name, email, phone, class, blood_group, city, gender, last_donation_date, is_available, is_verified 
                 FROM users WHERE id = ? AND user_type = 'donor'";
         $result = $db->query($sql, [$_SESSION['user_id']]);
-        $donor = $result->fetch_assoc();
+        $sidebarDonor = $result->fetch_assoc();
         
-        if ($donor) {
+        if ($sidebarDonor) {
             // Check availability status
-            $canDonate = calculateAvailability($donor['last_donation_date'], $donor['gender']);
+            $sidebarCanDonate = calculateAvailability($sidebarDonor['last_donation_date'], $sidebarDonor['gender']);
+            
+            // Cache the results
+            $_SESSION[$cacheKey] = $sidebarDonor;
+            $_SESSION[$cacheKey . '_time'] = time();
+            $_SESSION[$cacheKey . '_can_donate'] = $sidebarCanDonate;
         } else {
             // If no donor found, set defaults
-            $donor = [
+            $sidebarDonor = [
                 'name' => 'Unknown Donor', 
                 'blood_group' => 'N/A', 
                 'class' => 'Class not set', 
                 'city' => 'City not set', 
                 'is_available' => false
             ];
-            $canDonate = false;
-            error_log("No donor found for user_id: " . $_SESSION['user_id']);
+            $sidebarCanDonate = false;
+            error_log("Sidebar: No donor found for user_id: " . $_SESSION['user_id']);
         }
     } catch (Exception $e) {
         // Handle error and set defaults
-        $donor = [
+        $sidebarDonor = [
             'name' => 'Error Loading', 
             'blood_group' => 'N/A', 
             'class' => 'Error', 
             'city' => 'Error', 
             'is_available' => false
         ];
-        $canDonate = false;
+        $sidebarCanDonate = false;
         // Log the error for debugging
         error_log("Sidebar donor fetch error: " . $e->getMessage());
     }
@@ -65,23 +95,32 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <div class="sidebar-content">
         <!-- Profile Card -->
         <div class="profile-card position-relative">
-            <div class="availability-badge <?php echo ($donor['is_available'] ?? false) ? 'available' : 'unavailable'; ?>"></div>
+            <div class="availability-badge <?php echo ($sidebarDonor['is_available'] ?? false) ? 'available' : 'unavailable'; ?>"></div>
             <div class="d-flex align-items-center">
                 <div class="blood-group-display me-3">
-                    <?php echo htmlspecialchars($donor['blood_group'] ?? 'N/A'); ?>
+                    <?php echo htmlspecialchars($sidebarDonor['blood_group'] ?? 'N/A'); ?>
                 </div>
                 <div class="flex-grow-1">
-                    <h6 class="mb-1 text-white"><?php echo htmlspecialchars($donor['name'] ?? 'Unknown Donor'); ?></h6>
-                    <small class="text-white-50"><?php echo htmlspecialchars($donor['class'] ?? 'Class not set'); ?></small>
+                    <h6 class="mb-1 text-white"><?php echo htmlspecialchars($sidebarDonor['name'] ?? 'Unknown Donor'); ?></h6>
+                    <small class="text-white-50"><?php echo htmlspecialchars($sidebarDonor['class'] ?? 'Class not set'); ?></small>
                     <br>
-                    <small class="text-white-50"><?php echo htmlspecialchars($donor['city'] ?? 'City not set'); ?></small>
+                    <small class="text-white-50"><?php echo htmlspecialchars($sidebarDonor['city'] ?? 'City not set'); ?></small>
                 </div>
             </div>
             <div class="mt-3">
-                <small class="text-white-50">
-                    Status: 
-                    <span class="<?php echo ($canDonate ?? false) ? 'text-success' : 'text-warning'; ?>">
-                        <?php echo ($canDonate ?? false) ? 'Eligible to Donate' : 'Not Eligible Yet'; ?>
+                <!-- Availability Status (User Controlled) -->
+                <small class="text-white-50 d-block mb-1">
+                    Availability: 
+                    <span class="fw-bold" style="color: <?php echo ($sidebarDonor['is_available'] ?? false) ? '#00ff88' : '#ffffff'; ?> !important;">
+                        <?php echo ($sidebarDonor['is_available'] ?? false) ? 'Available' : 'Not Available'; ?>
+                    </span>
+                </small>
+                
+                <!-- Donation Eligibility (Date Based) -->
+                <small class="text-white-50 d-block">
+                    Eligibility: 
+                    <span class="fw-bold" style="color: <?php echo ($sidebarCanDonate ?? false) ? '#00d4ff' : '#ffd93d'; ?> !important;">
+                        <?php echo ($sidebarCanDonate ?? false) ? 'Eligible to Donate' : 'Not Eligible Yet'; ?>
                     </span>
                 </small>
             </div>
