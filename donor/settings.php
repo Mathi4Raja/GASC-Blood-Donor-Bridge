@@ -131,21 +131,7 @@ try {
 <body class="bg-light">
     <?php include 'includes/sidebar.php'; ?>
     
-    <!-- Sidebar overlay for mobile -->
-    <div class="sidebar-overlay"></div>
-    
-    <!-- Mobile header with sidebar toggle -->
-    <div class="mobile-header d-lg-none">
-        <div class="d-flex justify-content-between align-items-center">
-            <button class="sidebar-toggle btn btn-primary">
-                <i class="fas fa-bars"></i>
-            </button>
-            <h5 class="mb-0">Settings</h5>
-            <div></div>
-        </div>
-    </div>
-    
-    <div class="donor-main-content">
+    <div class="main-content">
         <div class="container-fluid p-4">
             <!-- Page Header -->
             <div class="page-header">

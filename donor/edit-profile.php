@@ -104,21 +104,7 @@ try {
 <body class="bg-light">
     <?php include 'includes/sidebar.php'; ?>
     
-    <!-- Sidebar overlay for mobile -->
-    <div class="sidebar-overlay"></div>
-    
-    <!-- Mobile header with sidebar toggle -->
-    <div class="mobile-header d-lg-none">
-        <div class="d-flex justify-content-between align-items-center">
-            <button class="sidebar-toggle btn btn-primary">
-                <i class="fas fa-bars"></i>
-            </button>
-            <h5 class="mb-0">Edit Profile</h5>
-            <div></div>
-        </div>
-    </div>
-    
-    <div class="donor-main-content">
+    <div class="main-content">
         <div class="container-fluid p-4">
             <!-- Page Header -->
             <div class="page-header">
@@ -160,6 +146,13 @@ try {
                                     <input type="email" class="form-control readonly-field" 
                                            value="<?php echo htmlspecialchars($donor['email'] ?? ''); ?>" readonly>
                                     <div class="form-text">Email cannot be changed for security reasons</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="roll_no" class="form-label">Roll Number</label>
+                                    <input type="text" class="form-control readonly-field" 
+                                           value="<?php echo htmlspecialchars($donor['roll_no'] ?? 'Not Available'); ?>" readonly>
+                                    <div class="form-text">Roll number cannot be modified</div>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">

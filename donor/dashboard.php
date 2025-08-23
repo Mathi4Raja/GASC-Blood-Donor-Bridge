@@ -86,34 +86,8 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="includes/sidebar.css">
     <style>
-        .dashboard-sidebar {
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            min-height: 100vh;
-            color: white;
-        }
-        
-        .profile-card {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .availability-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 3px solid white;
-        }
-        
-        .available { background: #28a745; }
-        .unavailable { background: #dc3545; }
-        
         .stat-card {
             background: white;
             border-radius: 15px;
@@ -145,36 +119,6 @@ try {
         .urgency-critical { border-left-color: #dc2626; }
         .urgency-urgent { border-left-color: #f59e0b; }
         .urgency-normal { border-left-color: #10b981; }
-        
-        .blood-group-display {
-            background: #dc2626;
-            color: white;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-        
-        .nav-link {
-            color: rgba(255,255,255,0.8);
-            transition: all 0.3s ease;
-        }
-        
-        .nav-link:hover, .nav-link.active {
-            color: white;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard-sidebar {
-                min-height: auto;
-            }
-        }
         
         /* Section Management */
         .content-section {
@@ -226,156 +170,17 @@ try {
             border-radius: 8px;
         }
         
-        /* Confirmation styling */
-        .unmark-btn:hover {
-            background-color: #dc3545 !important;
-            color: white !important;
+        /* Section Management */
+        .section-cards { 
+            display: none; 
         }
-        
-        /* Mobile Navigation Styles for Donor Dashboard */
-        .mobile-nav-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1050;
-            background: var(--primary-red);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 18px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        .section-cards.active { 
+            display: block; 
         }
-        
-        .mobile-nav-toggle:hover {
-            background: var(--dark-red);
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        .mobile-nav-toggle.hidden {
-            opacity: 0;
-            pointer-events: none;
-            transform: scale(0.7) rotate(90deg);
-        }
-        
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1040;
-            opacity: 0;
-            transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        
-        .sidebar-overlay.show {
-            display: block;
-            opacity: 1;
-        }
-        
-        .sidebar-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: none;
-            border: none;
-            font-size: 20px;
-            color: rgba(255,255,255,0.8);
-            z-index: 1046;
-            opacity: 0;
-            transform: rotate(0deg) scale(0.8);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        
-        .dashboard-sidebar.show .sidebar-close {
-            opacity: 1;
-            transform: rotate(180deg) scale(1);
-        }
-        
-        .sidebar-close:hover {
-            color: white;
-            transform: rotate(180deg) scale(1.1);
-        }
-        
-        @media (max-width: 767.98px) {
-            .dashboard-sidebar {
-                position: fixed !important;
-                top: 0;
-                left: -100%;
-                width: 300px;
-                height: 100vh;
-                z-index: 1045;
-                transition: left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-                box-shadow: 2px 0 25px rgba(0,0,0,0.3);
-            }
-            
-            .dashboard-sidebar.show {
-                left: 0;
-            }
-            
-            .dashboard-sidebar .p-4 {
-                padding-top: 60px !important;
-            }
-            
-            .col-lg-9, .col-md-8 {
-                margin-left: 0 !important;
-                padding-left: 15px !important;
-                padding-right: 15px !important;
-                width: 100% !important;
-                max-width: 100% !important;
-            }
-            
-            .donor-main-content {
-                padding-top: 60px !important;
-            }
-            
-            /* Animate nav links */
-            .dashboard-sidebar .nav-link {
-                opacity: 0.8;
-                transform: translateX(-20px);
-                transition: all 0.3s ease;
-            }
-            
-            .dashboard-sidebar.show .nav-link {
-                opacity: 1;
-                transform: translateX(0);
-                animation: slideInLeft 0.5s ease forwards;
-            }
-            
-            .dashboard-sidebar.show .nav-link:nth-child(1) { animation-delay: 0.1s; }
-            .dashboard-sidebar.show .nav-link:nth-child(2) { animation-delay: 0.15s; }
-            .dashboard-sidebar.show .nav-link:nth-child(3) { animation-delay: 0.2s; }
-            .dashboard-sidebar.show .nav-link:nth-child(4) { animation-delay: 0.25s; }
-            .dashboard-sidebar.show .nav-link:nth-child(5) { animation-delay: 0.3s; }
-            .dashboard-sidebar.show .nav-link:nth-child(6) { animation-delay: 0.35s; }
-            
-            @keyframes slideInLeft {
-                from {
-                    opacity: 0.8;
-                    transform: translateX(-20px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateX(0);
-                }
-            }
-        }
+
     </style>
 </head>
 <body>
-    <!-- Mobile Navigation Toggle -->
-    <button class="mobile-nav-toggle d-md-none" type="button" id="mobileNavToggle">
-        <i class="fas fa-bars"></i>
-    </button>
-    
-    <!-- Sidebar Overlay for Mobile -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
     <?php if ($error && !$donor): ?>
         <!-- Error State -->
         <div class="container-fluid bg-danger text-white min-vh-100 d-flex align-items-center">
@@ -395,83 +200,29 @@ try {
         </div>
     <?php else: ?>
     
-    <div class="container-fluid"><?php if ($error): ?>
+    <!-- Include unified sidebar -->
+    <?php include 'includes/sidebar.php'; ?>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <?php if ($error): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <i class="fas fa-exclamation-circle me-2"></i>
                 <?php echo htmlspecialchars($error); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-lg-3 col-md-4 dashboard-sidebar p-0" id="donorSidebar">
-                <!-- Close button for mobile -->
-                <button class="sidebar-close d-md-none" type="button" id="sidebarClose">
-                    <i class="fas fa-times"></i>
-                </button>
-                
-                <div class="p-4">
-                    <!-- Profile Card -->
-                    <div class="profile-card position-relative">
-                        <div class="availability-badge <?php echo ($donor['is_available'] ?? false) ? 'available' : 'unavailable'; ?>"></div>
-                        <div class="d-flex align-items-center">
-                            <div class="blood-group-display me-3">
-                                <?php echo $donor['blood_group'] ?? 'N/A'; ?>
-                            </div>
-                            <div>
-                                <h6 class="mb-1"><?php echo htmlspecialchars($donor['name'] ?? 'Unknown'); ?></h6>
-                                <small class="opacity-75"><?php echo htmlspecialchars($donor['class'] ?? 'N/A'); ?></small>
-                                <br>
-                                <small class="opacity-75"><?php echo htmlspecialchars($donor['city'] ?? 'N/A'); ?></small>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <small class="opacity-75">
-                                Status: 
-                                <span class="<?php echo $canDonate ? 'text-success' : 'text-warning'; ?>">
-                                    <?php echo $canDonate ? 'Eligible to Donate' : 'Not Eligible Yet'; ?>
-                                </span>
-                            </small>
-                        </div>
-                    </div>
-                    
-                    <!-- Navigation -->
-                    <nav class="nav flex-column">
-                        <a class="nav-link active" href="dashboard.php">
-                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                        </a>
-                        <a class="nav-link" href="edit-profile.php">
-                            <i class="fas fa-user me-2"></i>My Profile
-                        </a>
-                        <a class="nav-link" href="#" onclick="showHistorySection(); return false;">
-                            <i class="fas fa-history me-2"></i>Donation History
-                        </a>
-                        <a class="nav-link" href="blood-requests.php">
-                            <i class="fas fa-hand-holding-heart me-2"></i>Blood Requests
-                        </a>
-                        <a class="nav-link" href="settings.php">
-                            <i class="fas fa-cog me-2"></i>Settings
-                        </a>
-                        <a class="nav-link" href="../logout.php">
-                            <i class="fas fa-sign-out-alt me-2"></i>Logout
-                        </a>
-                    </nav>
-                </div>
+        
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="text-dark">Welcome back, <?php echo htmlspecialchars($donor['name'] ?? 'Donor'); ?>!</h2>
+                <p class="text-muted mb-0">Your contribution can save lives today</p>
             </div>
-            
-            <!-- Main Content -->
-            <div class="col-lg-9 col-md-8 donor-main-content">
-                <div class="p-4">
-                    <!-- Header -->
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h2 class="text-dark">Welcome back, <?php echo htmlspecialchars($donor['name'] ?? 'Donor'); ?>!</h2>
-                            <p class="text-muted mb-0">Your contribution can save lives today</p>
-                        </div>
-                        <div class="text-end">
-                            <small class="text-muted">Last login: <?php echo date('M d, Y \a\t g:i A'); ?> IST</small>
-                        </div>
-                    </div>
+            <div class="text-end">
+                <small class="text-muted">Last login: <?php echo date('M d, Y \a\t g:i A'); ?> IST</small>
+            </div>
+        </div>
                     
                     <?php if (isset($success)): ?>
                         <div class="alert alert-success alert-dismissible fade show">
@@ -708,88 +459,13 @@ try {
                                             </div>
                                         <?php endforeach; ?>
                                         <div class="text-center mt-3">
-                                            <a href="#" onclick="showHistorySection(); return false;" class="btn btn-sm btn-outline-danger">View All</a>
+                                            <a href="donation-history.php" class="btn btn-sm btn-outline-danger">View All History</a>
                                         </div>
                                     <?php endif; ?>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    </div>
-
-                    <!-- Full Donation History Section (Initially Hidden) -->
-                    <div id="history-section" class="content-section" style="display: none;">
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                                        <h5 class="mb-0">
-                                            <i class="fas fa-history text-danger me-2"></i>
-                                            Complete Donation History
-                                        </h5>
-                                        <div>
-                                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="showDashboardSection()">
-                                                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
-                                            </button>
-                                            <button class="btn btn-outline-success btn-sm" onclick="addDonationRecord()">
-                                                <i class="fas fa-plus me-1"></i>Add Donation
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <?php if (empty($donationHistory)): ?>
-                                            <div class="text-center py-5">
-                                                <i class="fas fa-calendar-times text-muted" style="font-size: 64px;"></i>
-                                                <h4 class="text-muted mt-3">No Donation History</h4>
-                                                <p class="text-muted">Start your blood donation journey today!</p>
-                                                <button class="btn btn-success" onclick="addDonationRecord()">
-                                                    <i class="fas fa-plus me-2"></i>Add Your First Donation
-                                                </button>
-                                            </div>
-                                        <?php else: ?>
-                                            <div class="table-responsive">
-                                                <table class="table table-hover">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Date</th>
-                                                            <th>Location</th>
-                                                            <th>Units</th>
-                                                            <th>Blood Bank</th>
-                                                            
-                                                            <th>Status</th>
-                                                            <th>Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <?php foreach ($donationHistory as $donation): ?>
-                                                            <tr>
-                                                                <td><strong><?php echo date('M d, Y', strtotime($donation['donation_date'])); ?></strong></td>
-                                                                <td><?php echo htmlspecialchars($donation['location'] ?? 'N/A'); ?></td>
-                                                                <td><span class="badge bg-danger"><?php echo $donation['units_donated'] ?? 1; ?></span></td>
-                                                                <td><?php echo htmlspecialchars($donation['blood_bank_name'] ?? 'N/A'); ?></td>
-                                                                
-                                                                <td>
-                                                                    <?php if ($donation['is_verified']): ?>
-                                                                        <span class="badge bg-success">Verified</span>
-                                                                    <?php else: ?>
-                                                                        <span class="badge bg-warning">Pending</span>
-                                                                    <?php endif; ?>
-                                                                </td>
-                                                                <td>
-                                                                    <button class="btn btn-sm btn-outline-primary" onclick="viewDonationDetails(<?php echo $donation['id']; ?>)">
-                                                                        <i class="fas fa-eye"></i>
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        <?php endforeach; ?>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- All Blood Requests Section -->
@@ -903,70 +579,15 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Mobile navigation functionality
-        function toggleDonorSidebar() {
-            const sidebar = document.getElementById('donorSidebar');
-            const overlay = document.querySelector('.sidebar-overlay');
-            const toggle = document.querySelector('.mobile-nav-toggle');
-            
-            if (sidebar && overlay && toggle) {
-                if (sidebar.classList.contains('show')) {
-                    sidebar.classList.remove('show');
-                    overlay.classList.remove('show');
-                    toggle.classList.remove('hidden');
-                    document.body.style.overflow = '';
-                } else {
-                    sidebar.classList.add('show');
-                    overlay.classList.add('show');
-                    toggle.classList.add('hidden');
-                    document.body.style.overflow = 'hidden';
-                }
-            }
-        }
-        
-        function hideDonorSidebar() {
-            const sidebar = document.getElementById('donorSidebar');
-            const overlay = document.querySelector('.sidebar-overlay');
-            const toggle = document.querySelector('.mobile-nav-toggle');
-            
-            if (sidebar && overlay && toggle) {
-                sidebar.classList.remove('show');
-                overlay.classList.remove('show');
-                toggle.classList.remove('hidden');
-                document.body.style.overflow = '';
-            }
-        }
-        
         document.addEventListener('DOMContentLoaded', function() {
-            // Mobile navigation initialization
-            const mobileToggle = document.querySelector('.mobile-nav-toggle');
-            const sidebarClose = document.querySelector('.sidebar-close');
-            const overlay = document.querySelector('.sidebar-overlay');
-            
-            if (mobileToggle) {
-                mobileToggle.addEventListener('click', toggleDonorSidebar);
-            }
-            
-            if (sidebarClose) {
-                sidebarClose.addEventListener('click', hideDonorSidebar);
-            }
-            
-            if (overlay) {
-                overlay.addEventListener('click', hideDonorSidebar);
-            }
-            
-            // Handle window resize
-            window.addEventListener('resize', function() {
-                if (window.innerWidth > 767.98) {
-                    hideDonorSidebar();
-                }
-            });
-            
             // Section navigation
             const navLinks = document.querySelectorAll('[data-section]');
             const sections = document.querySelectorAll('.content-section');
             
-            // Initialize - show dashboard section
-            showSection('dashboard');
+            // Initialize - show dashboard section if sections exist
+            if (sections.length > 0) {
+                showSection('dashboard');
+            }
             
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
@@ -1024,17 +645,6 @@ try {
             window.location.href = 'donation-details.php?id=' + donationId;
         }
         
-        // Section Navigation Functions
-        function showHistorySection() {
-            document.getElementById('dashboard-section').style.display = 'none';
-            document.getElementById('history-section').style.display = 'block';
-        }
-        
-        function showDashboardSection() {
-            document.getElementById('history-section').style.display = 'none';
-            document.getElementById('dashboard-section').style.display = 'block';
-        }
-        
         function applyFilters() {
             const bloodGroup = document.getElementById('bloodGroupFilter').value;
             const urgency = document.getElementById('urgencyFilter').value;
@@ -1078,6 +688,13 @@ try {
             }
         });
     </script>
+    
+    </div> <!-- End main-content -->
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Unified Sidebar JS -->
+    <script src="includes/sidebar.js"></script>
     
     <?php endif; ?>
 </body>

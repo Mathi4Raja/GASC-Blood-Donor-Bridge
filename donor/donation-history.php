@@ -182,26 +182,27 @@ try {
             margin-bottom: 20px;
             opacity: 0.5;
         }
+        
+        .empty-state p {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 auto 1.5rem auto !important;
+            font-size: 1.1rem;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        
+        .empty-state h4 {
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-light">
     <?php include 'includes/sidebar.php'; ?>
     
-    <!-- Sidebar overlay for mobile -->
-    <div class="sidebar-overlay"></div>
-    
-    <!-- Mobile header with sidebar toggle -->
-    <div class="mobile-header d-lg-none">
-        <div class="d-flex justify-content-between align-items-center">
-            <button class="sidebar-toggle btn btn-primary">
-                <i class="fas fa-bars"></i>
-            </button>
-            <h5 class="mb-0">Donation History</h5>
-            <div></div>
-        </div>
-    </div>
-    
-    <div class="donor-main-content">
+    <div class="main-content">
         <div class="container-fluid p-4">
             <!-- Page Header -->
             <div class="page-header">
@@ -308,12 +309,12 @@ try {
                             <i class="fas fa-calendar-times"></i>
                             <h4>No Donation Records Found</h4>
                             <?php if (!empty($statusFilter) || !empty($yearFilter)): ?>
-                                <p>No donations match your current filters. Try adjusting your search criteria.</p>
+                                <p class="text-muted mb-3">No donations match your current filters. Try adjusting your search criteria.</p>
                                 <a href="donation-history.php" class="btn btn-outline-danger">Clear Filters</a>
                             <?php else: ?>
-                                <p>Start your blood donation journey today!</p>
-                                <a href="add-donation.php" class="btn btn-success">
-                                    <i class="fas fa-plus me-2"></i>Add Your First Donation
+                                <p class="text-muted mb-4">Start your blood donation journey today!</p>
+                                <a href="add-donation.php" class="btn btn-success btn-sm">
+                                    Add Your First Donation
                                 </a>
                             <?php endif; ?>
                         </div>
