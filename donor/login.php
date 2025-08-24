@@ -141,7 +141,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="login-card">
                 <div class="login-header">
                     <div class="d-flex align-items-center justify-content-center mb-3">
-                        <img src="../assets/images/gobi-arts-science-logo.png" alt="GASC Logo" style="height: 50px;" class="me-2">
                         <h2 class="text-danger fw-bold mb-0">GASC Blood Bridge</h2>
                     </div>
                     <h3 class="text-dark mb-2">Donor Login</h3>

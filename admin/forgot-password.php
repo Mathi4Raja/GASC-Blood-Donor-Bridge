@@ -409,7 +409,6 @@ if (!empty($token) && $step === '1') {
                                 <h6><i class="fas fa-shield-alt text-success me-1"></i>Security Confirmation</h6>
                                 <small>
                                     • Your admin password has been successfully updated<br>
-                                    • All administrators have been notified of this change<br>
                                     • This activity has been logged for security audit
                                 </small>
                             </div>
