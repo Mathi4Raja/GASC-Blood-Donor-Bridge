@@ -1,0 +1,46 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+/logs/*.log
+/logs/*.tmp
+/logs/daily_stats_*.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cache files
+*.cache
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+*.tmp
+*.temp
+
+# User uploads (if any)
+/uploads/
+
+# Config files with sensitive data (if any)
+config/local.php
+config/production.php
+
+# SMTP credentials and sensitive config - CRITICAL FOR SECURITY
+config/smtp.php
+config/secrets.php
+*.secret.php

@@ -4,6 +4,9 @@
  * Uses PHPMailer with Gmail SMTP (free tier)
  */
 
+// Load environment configuration
+require_once __DIR__ . '/env.php';
+
 // Include PHPMailer classes manually if available
 $phpmailer_path = __DIR__ . '/../vendor/phpmailer/phpmailer/src/';
 $phpmailer_available = false;
@@ -22,14 +25,14 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
 }
 
 /**
- * Email configuration settings
+ * Email configuration settings - loaded from environment variables
  */
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587);
-define('SMTP_USERNAME', 'solunattic@gmail.com'); // Replace with your Gmail address
-define('SMTP_PASSWORD', 'npio ogcb fdoc jphc'); // Replace with Gmail App Password
-define('SMTP_FROM_EMAIL', 'solunattic@gmail.com'); // Replace with your Gmail address
-define('SMTP_FROM_NAME', 'GASC Blood Bridge');
+define('SMTP_HOST', EnvLoader::get('SMTP_HOST', 'smtp.gmail.com'));
+define('SMTP_PORT', (int)EnvLoader::get('SMTP_PORT', 587));
+define('SMTP_USERNAME', EnvLoader::get('SMTP_USERNAME', 'your-email@gmail.com'));
+define('SMTP_PASSWORD', EnvLoader::get('SMTP_PASSWORD', 'your-app-password'));
+define('SMTP_FROM_EMAIL', EnvLoader::get('SMTP_FROM_EMAIL', EnvLoader::get('SMTP_USERNAME', 'your-email@gmail.com')));
+define('SMTP_FROM_NAME', EnvLoader::get('SMTP_FROM_NAME', 'GASC Blood Bridge'));
 
 /**
  * Send email using PHPMailer or fallback to logging
