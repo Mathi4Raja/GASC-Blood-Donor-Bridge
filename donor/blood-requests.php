@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/site.php';
 
 // Check if user is logged in as donor
 requireRole(['donor']);
@@ -316,7 +317,7 @@ $totalPages = ceil($totalRequests / $limit);
             const shareData = {
                 title: 'Urgent Blood Donation Request',
                 text: `${requesterName} urgently needs ${bloodGroup} blood. Please help save a life!`,
-                url: window.location.origin + '/GASC Blood Donor Bridge/request/blood-request.php?id=' + requestId
+                url: window.location.origin + '<?php echo sitePath("request/blood-request.php"); ?>?id=' + requestId
             };
             
             if (navigator.share) {

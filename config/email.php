@@ -6,6 +6,7 @@
 
 // Load environment configuration
 require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/site.php';
 
 // Include PHPMailer classes manually if available
 $phpmailer_path = __DIR__ . '/../vendor/phpmailer/phpmailer/src/';
@@ -205,11 +206,11 @@ function sendPasswordResetEmail($email, $resetToken, $userName, $userType = 'don
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     
-    // Generate role-specific reset link
+    // Generate role-specific reset link using site configuration
     if ($userType === 'admin' || $userType === 'moderator') {
-        $resetPath = "/GASC-Blood-Donor-Bridge/admin/forgot-password.php?step=2&token=" . urlencode($resetToken);
+        $resetPath = sitePath("admin/forgot-password.php?step=2&token=" . urlencode($resetToken));
     } else {
-        $resetPath = "/GASC-Blood-Donor-Bridge/donor/forgot-password.php?step=2&token=" . urlencode($resetToken);
+        $resetPath = sitePath("donor/forgot-password.php?step=2&token=" . urlencode($resetToken));
     }
     
     $resetLink = "$protocol://$host$resetPath";
