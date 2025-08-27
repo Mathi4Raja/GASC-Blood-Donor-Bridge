@@ -8,51 +8,8 @@ $db = new Database();
 $success = '';
 $error = '';
 
-// Get blood group statistics for inventory
-$inventoryQuery = "
-    SELECT 
-        bg.blood_group,
-        COALESCE(bg.total_donors, 0) as total_donors,
-        COALESCE(bg.available_donors, 0) as available_donors,
-        COALESCE(active_requests.active_requests, 0) as active_requests,
-        COALESCE(fulfilled_requests.fulfilled_this_month, 0) as fulfilled_this_month,
-        CASE 
-            WHEN COALESCE(bg.available_donors, 0) >= COALESCE(active_requests.active_requests, 0) * 2 THEN 'Good'
-            WHEN COALESCE(bg.available_donors, 0) >= COALESCE(active_requests.active_requests, 0) THEN 'Low'
-            ELSE 'Critical'
-        END as stock_status,
-        (
-            SELECT COUNT(*) FROM users u 
-            WHERE u.blood_group = bg.blood_group 
-            AND u.user_type = 'donor' 
-            AND u.is_available = TRUE 
-            AND u.is_verified = TRUE 
-            AND u.is_active = TRUE 
-            AND (
-                u.last_donation_date IS NULL 
-                OR (u.gender = 'Female' AND DATEDIFF(CURDATE(), u.last_donation_date) >= 120)
-                OR (u.gender != 'Female' AND DATEDIFF(CURDATE(), u.last_donation_date) >= 90)
-            )
-        ) as can_donate_now
-    FROM blood_group_stats bg
-    LEFT JOIN (
-        SELECT blood_group, COUNT(*) as active_requests 
-        FROM blood_requests 
-        WHERE status = 'Active' 
-        GROUP BY blood_group
-    ) active_requests ON bg.blood_group = active_requests.blood_group
-    LEFT JOIN (
-        SELECT blood_group, COUNT(*) as fulfilled_this_month 
-        FROM blood_requests 
-        WHERE status = 'Fulfilled' 
-        AND MONTH(updated_at) = MONTH(CURRENT_DATE()) 
-        AND YEAR(updated_at) = YEAR(CURRENT_DATE())
-        GROUP BY blood_group
-    ) fulfilled_requests ON bg.blood_group = fulfilled_requests.blood_group
-    ORDER BY bg.blood_group
-";
-
-$inventory = $db->query($inventoryQuery)->fetch_all(MYSQLI_ASSOC);
+// Get blood group statistics for inventory using the database function
+$inventory = getBloodInventoryStats();
 
 // Handle CSV export
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {

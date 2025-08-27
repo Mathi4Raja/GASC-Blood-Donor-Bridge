@@ -16,6 +16,55 @@ session_start();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
+    
+    <style>
+        /* Enhanced mobile responsiveness for landing page */
+        @media (max-width: 768px) {
+            .hero-content h1 {
+                font-size: 1.75rem !important;
+            }
+            
+            .hero-content .lead {
+                font-size: 0.95rem !important;
+            }
+            
+            .btn-lg {
+                font-size: 0.9rem;
+                padding: 0.75rem 1.5rem;
+            }
+            
+            .section-title {
+                font-size: 1.75rem !important;
+            }
+            
+            .about-content h3 {
+                font-size: 1.25rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .hero-content h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            .hero-content .lead {
+                font-size: 0.9rem !important;
+            }
+            
+            .btn-lg {
+                font-size: 0.85rem;
+                padding: 0.625rem 1.25rem;
+            }
+            
+            .section-title {
+                font-size: 1.5rem !important;
+            }
+            
+            .d-grid.d-md-flex {
+                gap: 0.75rem !important;
+            }
+        }
+    </style>
 </head>
 <body class="landing-page">
     <!-- Navigation -->
@@ -365,9 +414,68 @@ session_start();
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Enhanced Page Loader -->
+    <div class="loader-overlay show" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-blood"></div>
+            <div class="loader-brand">GASC Blood Bridge</div>
+            <div class="loader-text">Welcome to Blood Donation...</div>
+            <div class="progress-loader"></div>
+        </div>
+    </div>
+    
     <!-- Auto-close hamburger menu script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Hide page loader when content is ready
+            const pageLoader = document.getElementById('pageLoader');
+            if (pageLoader) {
+                setTimeout(() => {
+                    pageLoader.classList.remove('show');
+                }, 2000);
+            }
+            
+            // Show loader for page navigation
+            document.querySelectorAll('a[href]:not([href^="#"]):not([target="_blank"]):not(.no-loader)').forEach(link => {
+                link.addEventListener('click', function() {
+                    if (pageLoader) {
+                        pageLoader.classList.add('show');
+                        const loaderText = pageLoader.querySelector('.loader-text');
+                        if (loaderText) {
+                            if (this.href.includes('register')) {
+                                loaderText.textContent = 'Opening Registration...';
+                            } else if (this.href.includes('request')) {
+                                loaderText.textContent = 'Opening Blood Request...';
+                            } else if (this.href.includes('login') || this.href.includes('admin')) {
+                                loaderText.textContent = 'Loading Admin Panel...';
+                            } else {
+                                loaderText.textContent = 'Loading...';
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Enhanced form loading for login modal
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function() {
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.classList.add('loading');
+                        submitBtn.disabled = true;
+                    }
+                    
+                    if (pageLoader) {
+                        pageLoader.classList.add('show');
+                        const loaderText = pageLoader.querySelector('.loader-text');
+                        if (loaderText) {
+                            loaderText.textContent = 'Authenticating...';
+                        }
+                    }
+                });
+            }
+            
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('#navbarNav');
             const navLinks = document.querySelectorAll('#navbarNav .nav-link');

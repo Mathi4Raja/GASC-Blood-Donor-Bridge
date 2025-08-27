@@ -127,32 +127,12 @@ CREATE TABLE system_settings (
 );
 
 -- Blood group statistics view
-CREATE VIEW blood_group_stats AS
-SELECT 
-    blood_group,
-    COUNT(*) as total_donors,
-    SUM(CASE WHEN is_available = TRUE AND is_verified = TRUE AND is_active = TRUE THEN 1 ELSE 0 END) as available_donors,
-    SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male_donors,
-    SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female_donors,
-    AVG(DATEDIFF(CURDATE(), last_donation_date)) as avg_days_since_last_donation
-FROM users 
-WHERE user_type = 'donor' AND blood_group IS NOT NULL
-GROUP BY blood_group;
+-- REMOVED: CREATE VIEW not supported on many hosting providers
+-- Use getBloodGroupStats() function in config/database.php instead
 
--- Recent requests view
-CREATE VIEW recent_requests AS
-SELECT 
-    br.id,
-    br.requester_name,
-    br.blood_group,
-    br.city,
-    br.urgency,
-    br.status,
-    br.created_at,
-    (SELECT COUNT(*) FROM users u WHERE u.blood_group = br.blood_group AND u.city = br.city AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
-FROM blood_requests br 
-WHERE br.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-ORDER BY br.created_at DESC;
+-- Recent requests view  
+-- REMOVED: CREATE VIEW not supported on many hosting providers
+-- Use getRecentRequestsStats() function in config/database.php instead
 
 -- Composite indexes for better performance
 CREATE INDEX idx_requests_composite ON blood_requests(status, blood_group, city, urgency);

@@ -2,14 +2,23 @@
 // Database configuration for GASC Blood Donor Bridge
 // Compatible with PHP 7.2 and MySQL 5.7+
 
+// Load environment configuration
+require_once __DIR__ . '/env.php';
+
 class Database {
-    private $host = 'localhost';
-    private $username = 'root';
-    private $password = '';
-    private $database = 'gasc_blood_bridge';
+    private $host;
+    private $username;
+    private $password;
+    private $database;
     private $connection;
     
     public function __construct() {
+        // Load database configuration from environment variables
+        $this->host = EnvLoader::get('DB_HOST', 'localhost');
+        $this->username = EnvLoader::get('DB_USERNAME', 'root');
+        $this->password = EnvLoader::get('DB_PASSWORD', '');
+        $this->database = EnvLoader::get('DB_NAME', 'gasc_blood_bridge');
+        
         $this->connect();
     }
     
@@ -287,6 +296,223 @@ function checkRateLimit($action, $limit = 5, $timeWindow = 300) {
     }
     
     return true;
+}
+
+/**
+ * Get blood group statistics (replaces blood_group_stats view)
+ * Alternative to CREATE VIEW for hosting environments without view privileges
+ */
+function getBloodGroupStats() {
+    try {
+        $db = new Database();
+        
+        $sql = "SELECT 
+            blood_group,
+            COUNT(*) as total_donors,
+            SUM(CASE WHEN is_available = TRUE AND is_verified = TRUE AND is_active = TRUE THEN 1 ELSE 0 END) as available_donors,
+            SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male_donors,
+            SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female_donors,
+            AVG(CASE WHEN last_donation_date IS NOT NULL THEN DATEDIFF(CURDATE(), last_donation_date) ELSE NULL END) as avg_days_since_last_donation
+        FROM users 
+        WHERE user_type = 'donor' AND blood_group IS NOT NULL 
+        GROUP BY blood_group 
+        ORDER BY blood_group";
+        
+        $result = $db->query($sql);
+        $stats = [];
+        
+        while ($row = $result->fetch_assoc()) {
+            $stats[] = $row;
+        }
+        
+        return $stats;
+        
+    } catch (Exception $e) {
+        error_log("Error getting blood group stats: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get available donors count by blood group
+ * Quick function for dashboard/inventory displays
+ */
+function getAvailableDonorsByBloodGroup() {
+    try {
+        $db = new Database();
+        
+        $sql = "SELECT 
+            blood_group,
+            COUNT(*) as available_count
+        FROM users 
+        WHERE user_type = 'donor' 
+            AND blood_group IS NOT NULL 
+            AND is_available = TRUE 
+            AND is_verified = TRUE 
+            AND is_active = TRUE
+        GROUP BY blood_group 
+        ORDER BY blood_group";
+        
+        $result = $db->query($sql);
+        $stats = [];
+        
+        while ($row = $result->fetch_assoc()) {
+            $stats[$row['blood_group']] = $row['available_count'];
+        }
+        
+        return $stats;
+        
+    } catch (Exception $e) {
+        error_log("Error getting available donors by blood group: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get recent blood requests with available donors count
+ * Replaces recent_requests view for hosting environments without view privileges
+ */
+function getRecentRequestsStats($days = 30) {
+    try {
+        $db = new Database();
+        
+        $sql = "SELECT 
+            br.id,
+            br.requester_name,
+            br.blood_group,
+            br.city,
+            br.urgency,
+            br.status,
+            br.created_at,
+            br.units_needed,
+            br.details
+        FROM blood_requests br 
+        WHERE br.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        ORDER BY br.created_at DESC";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param('i', $days);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $requests = [];
+        while ($row = $result->fetch_assoc()) {
+            // Add available donors count for each request
+            $availableCountSql = "SELECT COUNT(*) as count FROM users u 
+                WHERE u.blood_group = ? AND u.city = ? 
+                AND u.is_available = TRUE AND u.is_verified = TRUE 
+                AND u.is_active = TRUE AND u.user_type = 'donor'";
+            
+            $countStmt = $db->prepare($availableCountSql);
+            $countStmt->bind_param('ss', $row['blood_group'], $row['city']);
+            $countStmt->execute();
+            $countResult = $countStmt->get_result();
+            $countRow = $countResult->fetch_assoc();
+            
+            $row['available_donors_count'] = $countRow['count'];
+            $requests[] = $row;
+        }
+        
+        return $requests;
+        
+    } catch (Exception $e) {
+        error_log("Error getting recent requests: " . $e->getMessage());
+        return [];
+    }
+}
+
+function getBloodInventoryStats() {
+    try {
+        $db = new Database();
+        $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        $inventory = [];
+        
+        foreach ($bloodGroups as $bloodGroup) {
+            // Get basic blood group stats
+            $statsSql = "SELECT 
+                COUNT(*) as total_donors,
+                SUM(CASE WHEN is_available = TRUE AND is_verified = TRUE AND is_active = TRUE THEN 1 ELSE 0 END) as available_donors
+            FROM users 
+            WHERE blood_group = ? AND user_type = 'donor'";
+            
+            $statsStmt = $db->prepare($statsSql);
+            $statsStmt->bind_param('s', $bloodGroup);
+            $statsStmt->execute();
+            $statsResult = $statsStmt->get_result();
+            $stats = $statsResult->fetch_assoc();
+            
+            // Get active requests count
+            $activeRequestsSql = "SELECT COUNT(*) as active_requests 
+                FROM blood_requests 
+                WHERE blood_group = ? AND status = 'Active'";
+            
+            $activeStmt = $db->prepare($activeRequestsSql);
+            $activeStmt->bind_param('s', $bloodGroup);
+            $activeStmt->execute();
+            $activeResult = $activeStmt->get_result();
+            $activeData = $activeResult->fetch_assoc();
+            
+            // Get fulfilled requests this month
+            $fulfilledSql = "SELECT COUNT(*) as fulfilled_this_month 
+                FROM blood_requests 
+                WHERE blood_group = ? AND status = 'Fulfilled' 
+                AND MONTH(updated_at) = MONTH(CURRENT_DATE()) 
+                AND YEAR(updated_at) = YEAR(CURRENT_DATE())";
+            
+            $fulfilledStmt = $db->prepare($fulfilledSql);
+            $fulfilledStmt->bind_param('s', $bloodGroup);
+            $fulfilledStmt->execute();
+            $fulfilledResult = $fulfilledStmt->get_result();
+            $fulfilledData = $fulfilledResult->fetch_assoc();
+            
+            // Get donors who can donate now (real-time availability)
+            $canDonateSql = "SELECT COUNT(*) as can_donate_now FROM users u 
+                WHERE u.blood_group = ? 
+                AND u.user_type = 'donor' 
+                AND u.is_available = TRUE 
+                AND u.is_verified = TRUE 
+                AND u.is_active = TRUE 
+                AND (
+                    u.last_donation_date IS NULL 
+                    OR (u.gender = 'Female' AND DATEDIFF(CURDATE(), u.last_donation_date) >= 120)
+                    OR (u.gender != 'Female' AND DATEDIFF(CURDATE(), u.last_donation_date) >= 90)
+                )";
+            
+            $canDonateStmt = $db->prepare($canDonateSql);
+            $canDonateStmt->bind_param('s', $bloodGroup);
+            $canDonateStmt->execute();
+            $canDonateResult = $canDonateStmt->get_result();
+            $canDonateData = $canDonateResult->fetch_assoc();
+            
+            // Calculate stock status
+            $availableDonors = (int)$stats['available_donors'];
+            $activeRequests = (int)$activeData['active_requests'];
+            
+            if ($availableDonors >= $activeRequests * 2) {
+                $stockStatus = 'Good';
+            } elseif ($availableDonors >= $activeRequests) {
+                $stockStatus = 'Low';
+            } else {
+                $stockStatus = 'Critical';
+            }
+            
+            $inventory[] = [
+                'blood_group' => $bloodGroup,
+                'total_donors' => (int)$stats['total_donors'],
+                'available_donors' => $availableDonors,
+                'active_requests' => $activeRequests,
+                'fulfilled_this_month' => (int)$fulfilledData['fulfilled_this_month'],
+                'stock_status' => $stockStatus,
+                'can_donate_now' => (int)$canDonateData['can_donate_now']
+            ];
+        }
+        
+        return $inventory;
+        
+    } catch (Exception $e) {
+        error_log("Error getting blood inventory stats: " . $e->getMessage());
+        return [];
+    }
 }
 
 // Start session securely by default

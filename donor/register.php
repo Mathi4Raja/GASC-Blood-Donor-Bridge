@@ -148,6 +148,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
     <style>
+        .register-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            display: flex;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        
+        .register-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .register-header {
+            background: linear-gradient(135deg, #fee2e2, #ffffff);
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .register-body {
+            padding: 1.5rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-danger {
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .register-container {
+                padding: 1rem 0.5rem;
+                align-items: flex-start;
+                min-height: auto;
+            }
+            
+            .register-header {
+                padding: 1.25rem 1rem;
+            }
+            
+            .register-header h2 {
+                font-size: 1.5rem;
+            }
+            
+            .register-body {
+                padding: 1.25rem;
+            }
+            
+            .form-control, .form-select {
+                font-size: 0.85rem;
+                padding: 0.625rem 0.875rem;
+            }
+            
+            .btn-danger {
+                padding: 0.625rem 1.25rem;
+                font-size: 0.9rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .register-container {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .register-header {
+                padding: 1rem 0.75rem;
+            }
+            
+            .register-header h2 {
+                font-size: 1.25rem;
+            }
+            
+            .register-body {
+                padding: 1rem;
+            }
+            
+            .form-control, .form-select {
+                font-size: 0.8rem;
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .btn-danger {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
         .back-home-btn-card {
             background: #fff;
             color: #dc2626 !important;

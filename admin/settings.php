@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/email.php';
+require_once '../config/env.php';
 
 // Check if user is logged in as admin
 requireRole(['admin']);
@@ -50,47 +51,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } elseif ($action === 'backup_database') {
         try {
-            $backup_file = '../database/backup_' . date('Y-m-d_H-i-s') . '.sql';
-            
             // Ensure backup directory exists
             if (!is_dir('../database')) {
                 mkdir('../database', 0755, true);
             }
             
-            // Database credentials (hardcoded to match database.php)
-            $host = 'localhost';
-            $username = 'root';
-            $password = '';
-            $database = 'gasc_blood_bridge';
+            // Database credentials from environment variables
+            $host = EnvLoader::get('DB_HOST', 'localhost');
+            $username = EnvLoader::get('DB_USERNAME', 'root');
+            $password = EnvLoader::get('DB_PASSWORD', '');
+            $database = EnvLoader::get('DB_NAME', 'gasc_blood_bridge');
             
-            // Full path to mysqldump (XAMPP installation)
-            $mysqldump_path = '"C:\\Program Files\\XAMPP\\mysql\\bin\\mysqldump.exe"';
+            // Full path to mysqldump - remove extra quotes from env variable
+            $mysqldump_path = trim(EnvLoader::get('MYSQLDUMP_PATH', 'C:\\Program Files\\XAMPP\\mysql\\bin\\mysqldump.exe'), '"');
             
-            // Build the command with proper escaping
-            $backup_file_full = realpath('../database') . '\\backup_' . date('Y-m-d_H-i-s') . '.sql';
-            
-            if (empty($password)) {
-                $command = "$mysqldump_path --user=$username --host=$host $database > \"$backup_file_full\"";
-            } else {
-                $command = "$mysqldump_path --user=$username --password=$password --host=$host $database > \"$backup_file_full\"";
+            // Verify mysqldump exists
+            if (!file_exists($mysqldump_path)) {
+                throw new Exception("mysqldump not found at: $mysqldump_path");
             }
             
-            // Execute the command
-            $output = [];
-            $return_var = 0;
-            exec($command . ' 2>&1', $output, $return_var);
+            // Build the backup file path
+            $backup_filename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
+            $backup_file_full = realpath('../database') . DIRECTORY_SEPARATOR . $backup_filename;
             
-            if ($return_var === 0 && file_exists($backup_file_full) && filesize($backup_file_full) > 0) {
-                logActivity($_SESSION['user_id'], 'backup_database', 'Created database backup: ' . basename($backup_file_full));
-                $message = 'Database backup created successfully: ' . basename($backup_file_full);
-                $messageType = 'success';
+            // Log the attempt
+            error_log("Starting database backup - File: $backup_filename");
+            
+            // Use popen for direct process execution (most reliable on Windows)
+            if (empty($password)) {
+                $command = "\"$mysqldump_path\" --user=\"$username\" --host=\"$host\" --single-transaction --routines --triggers \"$database\"";
             } else {
-                $error_msg = !empty($output) ? implode('\n', $output) : 'Unknown error occurred';
-                $message = 'Failed to create database backup. Error: ' . $error_msg;
-                $messageType = 'danger';
+                $command = "\"$mysqldump_path\" --user=\"$username\" --password=\"$password\" --host=\"$host\" --single-transaction --routines --triggers \"$database\"";
+            }
+            
+            // Execute command and capture output
+            $handle = popen($command, 'r');
+            if (!$handle) {
+                throw new Exception('Failed to execute mysqldump command');
+            }
+            
+            $backup_content = '';
+            while (!feof($handle)) {
+                $chunk = fread($handle, 8192);
+                if ($chunk === false) break;
+                $backup_content .= $chunk;
+            }
+            $return_code = pclose($handle);
+            
+            error_log("Backup command executed - Return code: $return_code, Content length: " . strlen($backup_content));
+            
+            // Check if we got valid backup content
+            if ($return_code === 0 && !empty($backup_content) && strlen($backup_content) > 1000 && strpos($backup_content, 'CREATE TABLE') !== false) {
+                // Write backup to file
+                if (file_put_contents($backup_file_full, $backup_content) !== false) {
+                    $file_size_mb = round(strlen($backup_content) / 1024 / 1024, 2);
+                    logActivity($_SESSION['user_id'], 'backup_database', 'Created database backup: ' . $backup_filename . ' (' . $file_size_mb . ' MB)');
+                    error_log("Backup successful - File: $backup_filename, Size: $file_size_mb MB");
+                    $message = 'Database backup created successfully: ' . $backup_filename . ' (' . $file_size_mb . ' MB)';
+                    $messageType = 'success';
+                } else {
+                    throw new Exception('Failed to write backup file to: ' . $backup_file_full);
+                }
+            } else {
+                // Log error details for debugging
+                $error_sample = substr($backup_content, 0, 500);
+                error_log("Backup failed - Return code: $return_code, Content sample: " . $error_sample);
+                
+                if ($return_code !== 0) {
+                    throw new Exception("mysqldump returned error code: $return_code");
+                } elseif (empty($backup_content)) {
+                    throw new Exception('mysqldump produced no output');
+                } elseif (strlen($backup_content) <= 1000) {
+                    throw new Exception('mysqldump produced insufficient content (' . strlen($backup_content) . ' bytes)');
+                } else {
+                    throw new Exception('mysqldump output does not contain expected SQL structure');
+                }
             }
             
         } catch (Exception $e) {
+            error_log("Backup exception: " . $e->getMessage());
             $message = 'Error creating backup: ' . $e->getMessage();
             $messageType = 'danger';
         }

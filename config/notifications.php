@@ -4,8 +4,8 @@
  * Automatically notifies eligible donors when new blood requests are posted
  */
 
-require_once '../config/database.php';
-require_once '../config/email.php';
+require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/email.php';
 
 /**
  * Notify eligible donors about a new blood request

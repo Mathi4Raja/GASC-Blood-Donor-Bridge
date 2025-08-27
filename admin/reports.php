@@ -46,7 +46,7 @@ if ($reportType === 'overview') {
     $reportData = array_merge($reportData, $requestStats);
     
     // Blood group distribution
-    $reportData['blood_group_stats'] = $db->query("SELECT * FROM blood_group_stats ORDER BY blood_group")->fetch_all(MYSQLI_ASSOC);
+    $reportData['blood_group_stats'] = getBloodGroupStats();
     
     // Daily requests trend
     $trendStmt = $db->prepare("
@@ -156,7 +156,7 @@ if ($reportType === 'overview') {
     ");
     $recentRequestsStmt->bind_param('ss', $startDate, $endDate);
     $recentRequestsStmt->execute();
-    $reportData['recent_requests'] = $recentRequestsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $reportData['recent_requests'] = getRecentRequestsStats(30);
     
 } elseif ($reportType === 'activity') {
     // Most active users

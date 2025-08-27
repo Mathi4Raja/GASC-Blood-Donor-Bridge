@@ -158,16 +158,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             display: flex;
             align-items: center;
-            padding: 40px 0;
+            padding: 2rem 1rem;
         }
         
         .request-card {
             background: white;
-            border-radius: 15px;
+            border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
             max-width: 900px;
             margin: 0 auto;
+            width: 100%;
         }
         
         body {
@@ -175,8 +176,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         .request-header {
-            background: linear-gradient(135deg, #fee2e2, #white);
-            padding: 2rem;
+            background: linear-gradient(135deg, #fee2e2, #ffffff);
+            padding: 1.5rem;
             text-align: center;
             border-bottom: 1px solid #e5e7eb;
         }
@@ -184,8 +185,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .urgency-cards {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 10px;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
         }
         
         .urgency-card {
@@ -201,21 +202,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: block;
             background: #f8f9fa;
             border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 15px;
+            border-radius: 8px;
+            padding: 1rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
             height: 100%;
+            font-size: 0.9rem;
         }
         
         .urgency-card input[type="radio"]:checked + label {
             border-color: #dc2626;
             background: #fee2e2;
+            font-weight: 600;
         }
         
         .urgency-critical label {
             border-color: #dc2626;
+        }
+        
+        /* Mobile responsive urgency cards */
+        @media (max-width: 768px) {
+            .request-container {
+                padding: 1rem 0.5rem;
+                align-items: flex-start;
+                min-height: auto;
+            }
+            
+            .request-header {
+                padding: 1.25rem 1rem;
+            }
+            
+            .request-header h2 {
+                font-size: 1.5rem;
+            }
+            
+            .urgency-cards {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .urgency-card label {
+                padding: 0.875rem;
+                font-size: 0.85rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .request-container {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .request-header {
+                padding: 1rem 0.75rem;
+            }
+            
+            .request-header h2 {
+                font-size: 1.25rem;
+            }
+            
+            .urgency-card label {
+                padding: 0.75rem;
+                font-size: 0.8rem;
+            }
         }
         
         .urgency-urgent label {
@@ -502,8 +551,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-danger btn-lg">
-                                <i class="fas fa-paper-plane me-2"></i>Submit Blood Request
+                            <button type="submit" class="btn btn-danger btn-lg" id="submitBtn">
+                                <span class="btn-text">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Blood Request
+                                </span>
                             </button>
                         </div>
                     </form>
@@ -528,9 +579,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Enhanced Page Loader -->
+    <div class="loader-overlay" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-blood"></div>
+            <div class="loader-brand">GASC Blood Bridge</div>
+            <div class="loader-text">Processing Request...</div>
+            <div class="progress-loader"></div>
+        </div>
+    </div>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('requestForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const pageLoader = document.getElementById('pageLoader');
             
             // Phone number validation
             document.getElementById('requester_phone').addEventListener('input', function() {
@@ -542,12 +606,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
             
-            // Form submission
+            // Enhanced form submission with loading states
             form.addEventListener('submit', function(e) {
                 if (!form.checkValidity()) {
                     e.preventDefault();
                     e.stopPropagation();
+                    form.classList.add('was-validated');
+                    return;
                 }
+                
+                // Show loading states
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+                
+                if (pageLoader) {
+                    pageLoader.classList.add('show');
+                    const loaderText = pageLoader.querySelector('.loader-text');
+                    if (loaderText) {
+                        loaderText.textContent = 'Submitting Blood Request...';
+                    }
+                }
+                
+                // Disable form inputs
+                const inputs = form.querySelectorAll('input, textarea, select');
+                inputs.forEach(input => {
+                    input.disabled = true;
+                });
+                
                 form.classList.add('was-validated');
             });
             
