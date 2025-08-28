@@ -26,12 +26,18 @@ body {
 
 /* Only apply padding-top to landing page */
 body.landing-page {
-    padding-top: 76px;
+    padding-top: 0;
 }
 
 /* Smooth scrolling */
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 90px; /* Account for fixed navbar height */
+}
+
+/* Section scroll offset for fixed navbar */
+section[id] {
+    scroll-margin-top: 30px;
 }
 
 /* Loading optimization */
@@ -112,6 +118,13 @@ img {
     align-items: center;
     position: relative;
     overflow: hidden;
+    padding-top: 76px;
+    padding-bottom: 2rem;
+    box-sizing: border-box;
+}
+
+.hero-row {
+    margin: 0;
 }
 
 .hero-section::before {
@@ -130,39 +143,66 @@ img {
     z-index: 2;
 }
 
-.hero-image img {
-    max-height: 500px;
-    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.3));
-    animation: float 6s ease-in-out infinite;
+/* Enhanced Hero Styling */
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 1.5rem;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    font-size: 0.9rem;
+    font-weight: 500;
+    animation: fadeInUp 1s ease-out;
 }
 
-@keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-20px); }
+.hero-actions {
+    margin-bottom: 2rem;
+    animation: fadeInUp 1s ease-out 0.3s both;
 }
 
-/* Hero logo (larger, less margin, rounded edges) */
-.hero-logo {
-    display: block;
-    margin: 0 auto 0.5rem auto;
-    max-width: 260px;
-    width: 100%;
-    height: auto;
-    object-fit: contain;
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.10);
-    transition: box-shadow 0.3s;
+.hero-actions .btn {
+    min-width: 200px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-@media (max-width: 768px) {
-    .hero-logo {
-        max-width: 180px;
+.hero-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.hero-actions .btn-danger:hover {
+    background-color: var(--dark-red);
+    border-color: var(--dark-red);
+}
+
+.hero-features {
+    animation: fadeInUp 1s ease-out 0.6s both;
+}
+
+.hero-features .feature-item {
+    transition: transform 0.3s ease;
+    padding: 1rem;
+}
+
+.hero-features .feature-item:hover {
+    transform: translateY(-5px);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
     }
-}
-
-@media (max-width: 480px) {
-    .hero-logo {
-        max-width: 120px;
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 

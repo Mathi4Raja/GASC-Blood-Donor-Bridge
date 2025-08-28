@@ -19,18 +19,49 @@ session_start();
     
     <style>
         /* Enhanced mobile responsiveness for landing page */
+        .hero-section {
+            height: 100vh !important;
+            padding-top: 76px;
+            box-sizing: border-box;
+        }
+        
+        .hero-row {
+            height: calc(100vh - 76px);
+            margin: 0;
+        }
+        
         @media (max-width: 768px) {
+            .hero-section {
+                padding-top: 66px !important; /* Smaller navbar on mobile */
+            }
+            
+            .hero-row {
+                height: calc(100vh - 66px);
+                padding: 1rem 0;
+            }
+            
             .hero-content h1 {
-                font-size: 1.75rem !important;
+                font-size: 2rem !important;
             }
             
             .hero-content .lead {
-                font-size: 0.95rem !important;
+                font-size: 1rem !important;
+                margin-bottom: 2rem !important;
             }
             
-            .btn-lg {
+            .hero-actions .btn {
+                min-width: 180px;
                 font-size: 0.9rem;
                 padding: 0.75rem 1.5rem;
+            }
+            
+            .hero-stats {
+                padding: 1.5rem !important;
+                margin-top: 2rem !important;
+            }
+            
+            .hero-stats .stat-item h3 {
+                font-size: 2rem !important;
             }
             
             .section-title {
@@ -43,25 +74,72 @@ session_start();
         }
         
         @media (max-width: 576px) {
+            .hero-section {
+                padding-top: 70px !important;
+                padding-bottom: 1rem !important;
+            }
+            
+            .hero-row {
+                padding: 1rem 0;
+            }
+            
             .hero-content h1 {
-                font-size: 1.5rem !important;
+                font-size: 1.75rem !important;
+                margin-bottom: 1rem !important;
             }
             
             .hero-content .lead {
-                font-size: 0.9rem !important;
+                font-size: 0.95rem !important;
+                margin-bottom: 1.5rem !important;
             }
             
-            .btn-lg {
+            .hero-actions {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+                margin-bottom: 1.5rem !important;
+            }
+            
+            .hero-actions .btn {
+                min-width: 100%;
                 font-size: 0.85rem;
-                padding: 0.625rem 1.25rem;
+                padding: 0.75rem 1.25rem;
+            }
+            
+            .hero-features {
+                margin-top: 1.5rem !important;
+            }
+            
+            .hero-features .feature-item {
+                padding: 0.75rem !important;
+            }
+            
+            .hero-badge {
+                font-size: 0.8rem !important;
+                padding: 0.4rem 1.2rem !important;
             }
             
             .section-title {
                 font-size: 1.5rem !important;
             }
+        }
+        
+        @media (max-height: 600px) {
+            .hero-content h1 {
+                font-size: 1.5rem !important;
+                margin-bottom: 0.75rem !important;
+            }
             
-            .d-grid.d-md-flex {
-                gap: 0.75rem !important;
+            .hero-content .lead {
+                font-size: 0.9rem !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .hero-features {
+                margin-top: 1rem !important;
+            }
+            
+            .hero-features .feature-item {
+                padding: 0.5rem !important;
             }
         }
     </style>
@@ -104,29 +182,59 @@ session_start();
     <!-- Hero Section -->
     <section id="home" class="hero-section">
         <div class="container">
-            <div class="row align-items-center min-vh-100">
-                <div class="col-lg-6">
-                    <div class="hero-content">
-                        <h1 class="display-4 fw-bold text-white mb-4">
+            <div class="row align-items-center hero-row">
+                <div class="col-12">
+                    <div class="hero-content text-center">
+                        <div class="hero-badge mb-4">
+                            <i class="fas fa-heart text-white me-2"></i>
+                            <span class="text-white-50">GASC Blood Donor Bridge</span>
+                        </div>
+                        <h1 class="display-3 fw-bold text-white mb-4">
                             Save Lives Through <span class="text-warning">Blood Donation</span>
                         </h1>
-                        <p class="lead text-white-50 mb-4">
-                            Join GASC Blood Donor Bridge - where compassion meets technology. 
+                        <p class="lead text-white-50 mb-5 mx-auto" style="max-width: 600px;">
+                            Join our life-saving community where compassion meets technology. 
                             Connect with those in need and become a hero in someone's story.
                         </p>
-                        <div class="d-grid d-md-flex gap-3">
-                            <a href="donor/register.php" class="btn btn-danger btn-lg px-4">
+                        <div class="hero-actions d-flex flex-column flex-md-row gap-3 justify-content-center align-items-center">
+                            <a href="donor/register.php" class="btn btn-danger btn-lg px-5 py-3">
                                 <i class="fas fa-heart me-2"></i>Become A Donor
                             </a>
-                            <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-4">
+                            <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-5 py-3">
                                 <i class="fas fa-plus-circle me-2"></i>Request For Blood
                             </a>
+                            <a href="requestor/login.php" class="btn btn-warning btn-lg px-5 py-3">
+                                <i class="fas fa-search me-2"></i>Track Requests
+                            </a>
                         </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="hero-image text-center">
-                        <img src="assets/images/hero-blood-donation.png" alt="Blood Donation Medical Equipment" class="hero-logo">
+                        <div class="hero-features mt-5">
+                            <div class="row text-center justify-content-center">
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-shield-alt text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">Safe & Secure</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-clock text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">24/7 Available</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-users text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">Trusted Community</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-mobile-alt text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">Easy to Use</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
