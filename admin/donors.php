@@ -1183,6 +1183,7 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function showUpdateDonationModal(donorId, lastDonationDate, donorName) {
             document.getElementById('updateDonorId').value = donorId;

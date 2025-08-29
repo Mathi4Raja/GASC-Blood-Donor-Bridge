@@ -705,6 +705,7 @@ $stats['critical'] = $db->query("SELECT COUNT(*) as count FROM blood_requests WH
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function showRequestDetails(request) {
             const modalContent = document.getElementById('requestDetailsContent');

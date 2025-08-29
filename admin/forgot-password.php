@@ -438,6 +438,7 @@ if (!empty($token) && $step === '1') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function togglePassword(inputId, iconId) {
             const passwordInput = document.getElementById(inputId);

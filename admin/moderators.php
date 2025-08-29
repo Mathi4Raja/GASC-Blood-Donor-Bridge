@@ -617,6 +617,7 @@ $stats['recent_activity'] = $db->query("
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function showResetPasswordModal(userId, userName) {
             document.getElementById('reset_user_id').value = userId;

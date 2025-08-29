@@ -715,59 +715,15 @@ try {
         </div>
     </div>
     
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Show loader initially
-            const pageLoader = document.getElementById('pageLoader');
-            if (pageLoader) {
-                pageLoader.classList.add('show');
-                
-                // Hide loader when content is ready
-                setTimeout(() => {
-                    pageLoader.classList.remove('show');
-                }, 1500);
-            }
-            
-            // Show loader for page navigation
-            document.querySelectorAll('a[href]:not([href^="#"]):not([target="_blank"])').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    if (pageLoader && !this.classList.contains('no-loader')) {
-                        pageLoader.classList.add('show');
-                        const loaderText = pageLoader.querySelector('.loader-text');
-                        if (loaderText) {
-                            loaderText.textContent = 'Loading...';
-                        }
-                    }
-                });
-            });
-            
-            // Enhanced form loading states
-            document.querySelectorAll('form').forEach(form => {
-                form.addEventListener('submit', function() {
-                    const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.classList.add('loading');
-                        submitBtn.disabled = true;
-                    }
-                    
-                    if (pageLoader) {
-                        pageLoader.classList.add('show');
-                        const loaderText = pageLoader.querySelector('.loader-text');
-                        if (loaderText) {
-                            loaderText.textContent = 'Processing...';
-                        }
-                    }
-                });
-            });
+            // Loading manager will handle initial loading automatically
             
             // Auto-refresh dashboard every 5 minutes with loading indicator
             setTimeout(function() {
-                if (pageLoader) {
-                    pageLoader.classList.add('show');
-                    const loaderText = pageLoader.querySelector('.loader-text');
-                    if (loaderText) {
-                        loaderText.textContent = 'Refreshing Dashboard...';
-                    }
+                if (window.loadingManager) {
+                    window.loadingManager.showLoader('Refreshing Dashboard...');
                 }
                 location.reload();
             }, 300000);

@@ -521,6 +521,7 @@ session_start();
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/loading-manager.js"></script>
     
     <!-- Enhanced Page Loader -->
     <div class="loader-overlay show" id="pageLoader">
@@ -535,54 +536,7 @@ session_start();
     <!-- Auto-close hamburger menu script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Hide page loader when content is ready
-            const pageLoader = document.getElementById('pageLoader');
-            if (pageLoader) {
-                setTimeout(() => {
-                    pageLoader.classList.remove('show');
-                }, 2000);
-            }
-            
-            // Show loader for page navigation
-            document.querySelectorAll('a[href]:not([href^="#"]):not([target="_blank"]):not(.no-loader)').forEach(link => {
-                link.addEventListener('click', function() {
-                    if (pageLoader) {
-                        pageLoader.classList.add('show');
-                        const loaderText = pageLoader.querySelector('.loader-text');
-                        if (loaderText) {
-                            if (this.href.includes('register')) {
-                                loaderText.textContent = 'Opening Registration...';
-                            } else if (this.href.includes('request')) {
-                                loaderText.textContent = 'Opening Blood Request...';
-                            } else if (this.href.includes('login') || this.href.includes('admin')) {
-                                loaderText.textContent = 'Loading Admin Panel...';
-                            } else {
-                                loaderText.textContent = 'Loading...';
-                            }
-                        }
-                    }
-                });
-            });
-            
-            // Enhanced form loading for login modal
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', function() {
-                    const submitBtn = this.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.classList.add('loading');
-                        submitBtn.disabled = true;
-                    }
-                    
-                    if (pageLoader) {
-                        pageLoader.classList.add('show');
-                        const loaderText = pageLoader.querySelector('.loader-text');
-                        if (loaderText) {
-                            loaderText.textContent = 'Authenticating...';
-                        }
-                    }
-                });
-            }
+            // Loading manager will handle the page loader automatically
             
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('#navbarNav');

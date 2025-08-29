@@ -579,6 +579,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     
     <!-- Enhanced Page Loader -->
     <div class="loader-overlay" id="pageLoader">
@@ -593,8 +594,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('requestForm');
-            const submitBtn = document.getElementById('submitBtn');
-            const pageLoader = document.getElementById('pageLoader');
             
             // Phone number validation
             document.getElementById('requester_phone').addEventListener('input', function() {
@@ -606,7 +605,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
             
-            // Enhanced form submission with loading states
+            // Form validation (loading states handled by loading manager)
             form.addEventListener('submit', function(e) {
                 if (!form.checkValidity()) {
                     e.preventDefault();
@@ -614,24 +613,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     form.classList.add('was-validated');
                     return;
                 }
-                
-                // Show loading states
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
-                
-                if (pageLoader) {
-                    pageLoader.classList.add('show');
-                    const loaderText = pageLoader.querySelector('.loader-text');
-                    if (loaderText) {
-                        loaderText.textContent = 'Submitting Blood Request...';
-                    }
-                }
-                
-                // Disable form inputs
-                const inputs = form.querySelectorAll('input, textarea, select');
-                inputs.forEach(input => {
-                    input.disabled = true;
-                });
                 
                 form.classList.add('was-validated');
             });
