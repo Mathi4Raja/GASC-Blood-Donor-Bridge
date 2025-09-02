@@ -1,5 +1,6 @@
 <?php
-session_start();
+// Initialize secure session BEFORE database connection
+require_once '../config/session.php';
 
 // Simple session-based authentication for requestors
 if (!isset($_SESSION['requestor_email'])) {
@@ -7,6 +8,7 @@ if (!isset($_SESSION['requestor_email'])) {
     exit;
 }
 
+// Now safely connect to database
 require_once '../config/database.php';
 
 $db = new Database();
@@ -30,7 +32,11 @@ if ($statusFilter !== 'all') {
     $params[] = $statusFilter;
 }
 
-$sql = "SELECT * FROM blood_requests $whereClause ORDER BY $sortBy $sortOrder";
+$sql = "SELECT *, 
+        (SELECT COUNT(*) FROM users u 
+         WHERE u.blood_group = blood_requests.blood_group 
+         AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
+        FROM blood_requests $whereClause ORDER BY $sortBy $sortOrder";
 $result = $db->query($sql, $params);
 $requests = $result->fetch_all(MYSQLI_ASSOC);
 
@@ -91,6 +97,31 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
         .urgency-critical { color: #dc3545; }
         .urgency-urgent { color: #fd7e14; }
         .urgency-normal { color: #28a745; }
+        
+        .donor-count-info {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-left: 3px solid;
+        }
+        
+        .donor-count-available {
+            border-left-color: #28a745;
+        }
+        
+        .donor-count-limited {
+            border-left-color: #ffc107;
+        }
+        
+        .donor-count-none {
+            border-left-color: #dc3545;
+        }
+        
+        .donor-count-updating {
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -174,9 +205,14 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">&nbsp;</label>
-                        <button type="submit" class="btn btn-danger d-block">
-                            <i class="fas fa-filter me-1"></i>Apply Filters
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger flex-grow-1">
+                                <i class="fas fa-filter me-1"></i>Apply Filters
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="updateDonorCounts()" id="refreshDonorCounts" title="Refresh Donor Counts">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -229,6 +265,23 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
                             <div class="mb-2">
                                 <small class="text-muted">
                                     <i class="fas fa-vials me-1"></i><?php echo $request['units_needed']; ?> unit(s) needed
+                                </small>
+                            </div>
+                            
+                            <div class="donor-count-info <?php 
+                                if ($request['available_donors_count'] >= 5) echo 'donor-count-available';
+                                elseif ($request['available_donors_count'] > 0) echo 'donor-count-limited'; 
+                                else echo 'donor-count-none';
+                            ?>">
+                                <small>
+                                    <i class="fas fa-users me-1"></i>
+                                    <span class="donor-count-text <?php echo $request['available_donors_count'] > 0 ? 'text-success' : 'text-danger'; ?>" 
+                                          data-blood-group="<?php echo $request['blood_group']; ?>">
+                                        <strong><?php echo $request['available_donors_count']; ?> donor(s) available</strong>
+                                    </span>
+                                    <?php if ($request['available_donors_count'] == 0): ?>
+                                        <span class="text-muted ms-1">• Searching for compatible donors</span>
+                                    <?php endif; ?>
                                 </small>
                             </div>
                             
@@ -450,7 +503,12 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
         function viewRequest(requestId) {
             // Load request details via AJAX
             fetch(`get-request-details.php?id=${requestId}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         document.getElementById('requestModalContent').innerHTML = data.html;
@@ -460,7 +518,7 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
                     }
                 })
                 .catch(error => {
-                    alert('Error loading request details');
+                    alert('Error loading request details: ' + error.message);
                 });
         }
 
@@ -479,8 +537,8 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Request cancelled successfully');
-                        window.location.reload();
+                        alert('Blood request cancelled successfully');
+                        location.reload(); // Refresh the page to show updated status
                     } else {
                         alert('Error cancelling request: ' + data.message);
                     }
@@ -489,6 +547,41 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
                     alert('Error cancelling request');
                 });
             }
+        }
+
+        // Function to refresh donor count in modal
+        function refreshModalDonorCount(requestId, bloodGroup) {
+            const countElement = document.getElementById(`modal-donor-count-${requestId}`);
+            const refreshBtn = countElement.nextElementSibling.querySelector('.fa-sync-alt');
+            
+            // Add spinning animation
+            refreshBtn.classList.add('fa-spin');
+            
+            fetch(`get-donor-count.php?blood_group=${bloodGroup}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const count = data.count;
+                        countElement.textContent = `${count} donor${count != 1 ? 's' : ''} available`;
+                        
+                        // Update badge color based on count
+                        countElement.className = countElement.className.replace(/bg-(success|warning|danger)/, '');
+                        if (count >= 5) {
+                            countElement.classList.add('bg-success');
+                        } else if (count >= 1) {
+                            countElement.classList.add('bg-warning');
+                        } else {
+                            countElement.classList.add('bg-danger');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing modal donor count:', error);
+                })
+                .finally(() => {
+                    // Remove spinning animation
+                    refreshBtn.classList.remove('fa-spin');
+                });
         }
 
         // Handle new request form submission
@@ -551,6 +644,113 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
             form.reset();
             form.classList.remove('was-validated');
         });
+
+        // Function to update donor counts dynamically
+        function updateDonorCounts() {
+            // Show updating feedback on refresh button
+            const refreshBtn = document.getElementById('refreshDonorCounts');
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                refreshBtn.disabled = true;
+            }
+            
+            // Get all donor count elements
+            const donorCountElements = document.querySelectorAll('.donor-count-text');
+            let completedUpdates = 0;
+            const totalUpdates = donorCountElements.length;
+            
+            donorCountElements.forEach(element => {
+                const bloodGroup = element.getAttribute('data-blood-group');
+                const parentDiv = element.closest('.donor-count-info');
+                
+                // Add updating animation
+                parentDiv.classList.add('donor-count-updating');
+                
+                // Fetch updated count
+                fetch('get-donor-count.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ blood_group: bloodGroup })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const donorCount = data.donor_count;
+                        
+                        // Update text content
+                        element.innerHTML = `<strong>${donorCount} donor(s) available</strong>`;
+                        
+                        // Update text color
+                        element.className = `donor-count-text ${donorCount > 0 ? 'text-success' : 'text-danger'}`;
+                        
+                        // Update container styling based on count
+                        parentDiv.classList.remove('donor-count-available', 'donor-count-limited', 'donor-count-none');
+                        if (donorCount >= 5) {
+                            parentDiv.classList.add('donor-count-available');
+                        } else if (donorCount > 0) {
+                            parentDiv.classList.add('donor-count-limited');
+                        } else {
+                            parentDiv.classList.add('donor-count-none');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating donor count for', bloodGroup, ':', error);
+                })
+                .finally(() => {
+                    // Remove updating animation
+                    parentDiv.classList.remove('donor-count-updating');
+                    
+                    // Check if all updates are complete
+                    completedUpdates++;
+                    if (completedUpdates === totalUpdates && refreshBtn) {
+                        refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                        refreshBtn.disabled = false;
+                    }
+                });
+            });
+            
+            // Also update modal donor counts if any modal is open
+            const openModal = document.querySelector('.modal.show');
+            if (openModal) {
+                const modalDonorCounts = openModal.querySelectorAll('[id^="modal-donor-count-"]');
+                modalDonorCounts.forEach(countElement => {
+                    const bloodGroup = countElement.getAttribute('data-blood-group');
+                    
+                    if (bloodGroup) {
+                        fetch(`get-donor-count.php?blood_group=${bloodGroup}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    const count = data.count;
+                                    countElement.textContent = `${count} donor${count != 1 ? 's' : ''} available`;
+                                    
+                                    // Update badge color based on count
+                                    countElement.className = countElement.className.replace(/bg-(success|warning|danger)/, '');
+                                    if (count >= 5) {
+                                        countElement.classList.add('bg-success');
+                                    } else if (count >= 1) {
+                                        countElement.classList.add('bg-warning');
+                                    } else {
+                                        countElement.classList.add('bg-danger');
+                                    }
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error updating modal donor count:', error);
+                            });
+                    }
+                });
+            }
+        }
+
+        // Update donor counts every 30 seconds
+        setInterval(updateDonorCounts, 30000);
+        
+        // Initial update after page load
+        setTimeout(updateDonorCounts, 2000);
     </script>
 </body>
 </html>

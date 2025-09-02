@@ -1,4 +1,8 @@
 <?php
+// Initialize secure session BEFORE database connection
+require_once '../config/session.php';
+
+// Now safely connect to database and other configs
 require_once '../config/database.php';
 require_once '../config/email.php';
 
@@ -158,7 +162,9 @@ $totalPages = ceil($totalRecords / $limit);
 
 // Get requests
 $requestsQuery = "SELECT *, 
-                  (SELECT COUNT(*) FROM users u WHERE u.blood_group = blood_requests.blood_group AND u.city = blood_requests.city AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
+                  (SELECT COUNT(*) FROM users u 
+                   WHERE u.blood_group = blood_requests.blood_group 
+                   AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
                   FROM blood_requests {$whereClause} 
                   ORDER BY 
                     CASE urgency 

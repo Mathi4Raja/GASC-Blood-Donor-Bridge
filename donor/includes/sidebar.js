@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check if elements exist
     if (!mobileToggle || !sidebar || !overlay || !closeBtn) {
-        console.log('Sidebar elements not found, skipping initialization');
         return;
     }
 
@@ -163,6 +162,4 @@ document.addEventListener('DOMContentLoaded', function() {
         const tooltipTriggerList = sidebar.querySelectorAll('[data-bs-toggle="tooltip"]');
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     }
-
-    console.log('Unified donor sidebar initialized successfully');
 });

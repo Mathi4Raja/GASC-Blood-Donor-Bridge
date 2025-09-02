@@ -64,7 +64,6 @@ function sendEmailWithPHPMailer($to, $subject, $body, $isHTML = true) {
         $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = SMTP_PORT;
         
-        // Production mode - disable debug
         $mail->SMTPDebug = 0;
         
         // Recipients

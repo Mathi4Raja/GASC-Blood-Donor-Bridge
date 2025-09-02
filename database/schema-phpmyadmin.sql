@@ -147,13 +147,19 @@ INSERT INTO users (name, email, phone, password_hash, user_type, is_verified, is
 -- Insert system settings
 INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('site_name', 'GASC Blood Donor Bridge', 'Website name'),
-('site_email', 'admin@gasc.edu', 'System email address'),
+('admin_email', 'admin@gasc.edu', 'Administrator email address'),
 ('request_expiry_days', '30', 'Default expiry days for blood requests'),
+('max_requests_per_user', '5', 'Maximum requests per user'),
+('donation_cooldown_days', '56', 'General donation cooldown in days'),
 ('male_donation_gap_months', '3', 'Minimum months between donations for males'),
 ('female_donation_gap_months', '4', 'Minimum months between donations for females'),
 ('otp_expiry_minutes', '10', 'OTP expiry time in minutes'),
 ('max_login_attempts', '5', 'Maximum login attempts before lockout'),
-('session_timeout_minutes', '30', 'Session timeout in minutes');
+('session_timeout_minutes', '30', 'Session timeout in minutes'),
+('email_notifications', '1', 'Enable email notifications'),
+('auto_expire_requests', '1', 'Auto-expire old requests'),
+('require_email_verification', '1', 'Require email verification for new accounts'),
+('allow_registrations', '1', 'Allow new user registrations');
 
 -- Insert sample donor data for testing (password: "secret")
 -- Test donor login credentials: Use any email below with password "secret"

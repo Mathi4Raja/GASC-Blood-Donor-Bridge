@@ -1,6 +1,6 @@
 <?php
-session_start();
-require_once '../config/database.php';
+// Initialize secure session BEFORE database connection
+require_once '../config/session.php';
 
 header('Content-Type: application/json');
 
@@ -8,6 +8,9 @@ if (!isset($_SESSION['requestor_email'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
 }
+
+// Now safely connect to database
+require_once '../config/database.php';
 
 $requestId = intval($_GET['id'] ?? 0);
 
@@ -32,8 +35,9 @@ try {
     
     // Get available donors count
     $donorsQuery = "SELECT COUNT(*) as donor_count FROM users 
-                   WHERE blood_group = ? AND city = ? AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
-    $donorsResult = $db->query($donorsQuery, [$request['blood_group'], $request['city']]);
+                   WHERE blood_group = ? 
+                   AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
+    $donorsResult = $db->query($donorsQuery, [$request['blood_group']]);
     $donorCount = $donorsResult->fetch_assoc()['donor_count'];
     
     // Generate HTML content
@@ -68,7 +72,16 @@ try {
                 </tr>
                 <tr>
                     <td><strong>Available Donors:</strong></td>
-                    <td><span class="badge bg-info">' . $donorCount . ' donors</span></td>
+                    <td>
+                        <span class="badge ' . ($donorCount >= 5 ? 'bg-success' : ($donorCount >= 1 ? 'bg-warning' : 'bg-danger')) . '" 
+                              id="modal-donor-count-' . $request['id'] . '" 
+                              data-blood-group="' . $request['blood_group'] . '">
+                            ' . $donorCount . ' donor' . ($donorCount != 1 ? 's' : '') . ' available
+                        </span>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="refreshModalDonorCount(' . $request['id'] . ', \'' . $request['blood_group'] . '\')" title="Refresh donor count">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </td>
                 </tr>
             </table>
         </div>

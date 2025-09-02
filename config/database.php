@@ -517,4 +517,7 @@ function getBloodInventoryStats() {
 
 // Start session securely by default
 startSecureSession();
+
+// Include system settings helper
+require_once __DIR__ . '/system-settings.php';
 ?>

@@ -18,7 +18,6 @@ function clearSidebarCache($userId = null) {
         unset($_SESSION[$cacheKey . '_can_donate']);
         unset($_SESSION[$cacheKey . '_time']);
         
-        // Add debug logging
         error_log("Sidebar cache cleared for user_id: " . $userId);
         
         return true;

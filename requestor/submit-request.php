@@ -1,5 +1,6 @@
 <?php
-session_start();
+// Initialize secure session BEFORE database connection
+require_once '../config/session.php';
 
 // Simple session-based authentication for requestors
 if (!isset($_SESSION['requestor_email'])) {
@@ -8,6 +9,7 @@ if (!isset($_SESSION['requestor_email'])) {
     exit;
 }
 
+// Now safely connect to database
 require_once '../config/database.php';
 require_once '../config/email.php';
 
@@ -81,8 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Get available donors count
             $donorsQuery = "SELECT COUNT(*) as donor_count FROM users 
-                           WHERE blood_group = ? AND city = ? AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
-            $donorsResult = $db->query($donorsQuery, [$bloodGroup, $city]);
+                           WHERE blood_group = ? 
+                           AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
+            $donorsResult = $db->query($donorsQuery, [$bloodGroup]);
             $donorCount = $donorsResult->fetch_assoc()['donor_count'];
             
             // Send confirmation email to requester

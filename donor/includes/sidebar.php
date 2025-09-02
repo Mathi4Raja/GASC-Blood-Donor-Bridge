@@ -68,7 +68,6 @@ if (!$sidebarDonor) {
             'is_available' => false
         ];
         $sidebarCanDonate = false;
-        // Log the error for debugging
         error_log("Sidebar donor fetch error: " . $e->getMessage());
     }
 }

@@ -322,7 +322,7 @@ $totalPages = ceil($totalRequests / $limit);
             };
             
             if (navigator.share) {
-                navigator.share(shareData).catch(err => console.log('Error sharing:', err));
+                navigator.share(shareData).catch(err => {});
             } else {
                 // Fallback - copy to clipboard
                 const textToShare = `${shareData.text}\n\nHelp here: ${shareData.url}`;

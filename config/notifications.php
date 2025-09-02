@@ -30,11 +30,12 @@ function notifyDonorsForBloodRequest($requestId) {
                      FROM users 
                      WHERE user_type = 'donor' 
                      AND blood_group = ? 
-                     AND city = ? 
                      AND is_available = TRUE 
                      AND is_verified = TRUE 
                      AND is_active = TRUE
-                     ORDER BY last_donation_date ASC NULLS FIRST
+                     ORDER BY 
+                        CASE WHEN city = ? THEN 1 ELSE 2 END,
+                        ISNULL(last_donation_date), last_donation_date ASC
                      LIMIT 50"; // Limit to 50 donors to avoid spam
         
         $donorResult = $db->query($donorSQL, [$request['blood_group'], $request['city']]);

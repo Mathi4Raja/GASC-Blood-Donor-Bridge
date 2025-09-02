@@ -23,10 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'max_requests_per_user' => (int)($_POST['max_requests_per_user'] ?? 5),
                 'request_expiry_days' => (int)($_POST['request_expiry_days'] ?? 30),
                 'donation_cooldown_days' => (int)($_POST['donation_cooldown_days'] ?? 56),
+                'male_donation_gap_months' => (int)($_POST['male_donation_gap_months'] ?? 3),
+                'female_donation_gap_months' => (int)($_POST['female_donation_gap_months'] ?? 4),
+                'otp_expiry_minutes' => (int)($_POST['otp_expiry_minutes'] ?? 10),
+                'max_login_attempts' => (int)($_POST['max_login_attempts'] ?? 5),
+                'session_timeout_minutes' => (int)($_POST['session_timeout_minutes'] ?? 30),
                 'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
                 'auto_expire_requests' => isset($_POST['auto_expire_requests']) ? 1 : 0,
                 'require_email_verification' => isset($_POST['require_email_verification']) ? 1 : 0,
-                'maintenance_mode' => isset($_POST['maintenance_mode']) ? 1 : 0,
                 'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0
             ];
             
@@ -113,7 +117,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Failed to write backup file to: ' . $backup_file_full);
                 }
             } else {
-                // Log error details for debugging
                 $error_sample = substr($backup_content, 0, 500);
                 error_log("Backup failed - Return code: $return_code, Content sample: " . $error_sample);
                 
@@ -222,10 +225,14 @@ $defaults = [
     'max_requests_per_user' => 5,
     'request_expiry_days' => 30,
     'donation_cooldown_days' => 56,
+    'male_donation_gap_months' => 3,
+    'female_donation_gap_months' => 4,
+    'otp_expiry_minutes' => 10,
+    'max_login_attempts' => 5,
+    'session_timeout_minutes' => 30,
     'email_notifications' => 1,
     'auto_expire_requests' => 1,
     'require_email_verification' => 1,
-    'maintenance_mode' => 0,
     'allow_registrations' => 1
 ];
 
@@ -310,6 +317,39 @@ if (is_dir('../database/')) {
         .form-switch .form-check-input {
             width: 2.5em;
             height: 1.25em;
+            margin-right: 0.75rem; /* spacing between toggle and icon/label */
+        }
+        
+        .system-features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
+        }
+        
+        .feature-item:hover {
+            background: rgba(0,0,0,0.05);
+            transform: translateY(-1px);
+        }
+        
+        .feature-item .form-check {
+            margin-bottom: 0;
+            width: 100%;
+        }
+        
+        .feature-item .form-check-label {
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
         }
         
         @media (max-width: 768px) {
@@ -319,6 +359,11 @@ if (is_dir('../database/')) {
             
             .settings-section {
                 padding: 15px 0;
+            }
+            
+            .system-features-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
             }
         }
     </style>
@@ -497,51 +542,100 @@ if (is_dir('../database/')) {
                                     </div>
                                     
                                     <div class="settings-section">
-                                        <h6 class="text-primary">System Features</h6>
+                                        <h6 class="text-primary">Donation Rules (Advanced)</h6>
                                         <div class="row">
                                             <div class="col-md-6">
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications" 
-                                                           <?php echo $currentSettings['email_notifications'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="email_notifications">
-                                                        Email Notifications
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="auto_expire_requests" name="auto_expire_requests" 
-                                                           <?php echo $currentSettings['auto_expire_requests'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="auto_expire_requests">
-                                                        Auto-expire Requests
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="require_email_verification" name="require_email_verification" 
-                                                           <?php echo $currentSettings['require_email_verification'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="require_email_verification">
-                                                        Require Email Verification
-                                                    </label>
+                                                <div class="mb-3">
+                                                    <label for="male_donation_gap_months" class="form-label">Male Donation Gap (Months)</label>
+                                                    <input type="number" class="form-control" id="male_donation_gap_months" name="male_donation_gap_months" 
+                                                           value="<?php echo $currentSettings['male_donation_gap_months']; ?>" min="1" max="12">
+                                                    <div class="form-text">Minimum months between donations for males</div>
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="allow_registrations" name="allow_registrations" 
-                                                           <?php echo $currentSettings['allow_registrations'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="allow_registrations">
-                                                        Allow New Registrations
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="maintenance_mode" name="maintenance_mode" 
-                                                           <?php echo $currentSettings['maintenance_mode'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="maintenance_mode">
-                                                        <span class="text-warning">Maintenance Mode</span>
-                                                    </label>
+                                                <div class="mb-3">
+                                                    <label for="female_donation_gap_months" class="form-label">Female Donation Gap (Months)</label>
+                                                    <input type="number" class="form-control" id="female_donation_gap_months" name="female_donation_gap_months" 
+                                                           value="<?php echo $currentSettings['female_donation_gap_months']; ?>" min="1" max="12">
+                                                    <div class="form-text">Minimum months between donations for females</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <div class="d-grid">
+                                    <div class="settings-section">
+                                        <h6 class="text-primary">Security & Session Settings</h6>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="otp_expiry_minutes" class="form-label">OTP Expiry (Minutes)</label>
+                                                    <input type="number" class="form-control" id="otp_expiry_minutes" name="otp_expiry_minutes" 
+                                                           value="<?php echo $currentSettings['otp_expiry_minutes']; ?>" min="1" max="60">
+                                                    <div class="form-text">How long OTP codes remain valid</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="max_login_attempts" class="form-label">Max Login Attempts</label>
+                                                    <input type="number" class="form-control" id="max_login_attempts" name="max_login_attempts" 
+                                                           value="<?php echo $currentSettings['max_login_attempts']; ?>" min="3" max="10">
+                                                    <div class="form-text">Failed attempts before lockout</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="mb-3">
+                                                    <label for="session_timeout_minutes" class="form-label">Session Timeout (Minutes)</label>
+                                                    <input type="number" class="form-control" id="session_timeout_minutes" name="session_timeout_minutes" 
+                                                           value="<?php echo $currentSettings['session_timeout_minutes']; ?>" min="5" max="480">
+                                                    <div class="form-text">Automatic logout after inactivity</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="settings-section">
+                                        <h6 class="text-primary mb-4">
+                                            <i class="fas fa-cogs me-2"></i>System Features
+                                        </h6>
+                                        <div class="system-features-grid">
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications"
+                                                           <?php echo $currentSettings['email_notifications'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="email_notifications">
+                                                        <i class="fas fa-envelope me-2 text-info"></i>Email Notifications
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="require_email_verification" name="require_email_verification"
+                                                           <?php echo $currentSettings['require_email_verification'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="require_email_verification">
+                                                        <i class="fas fa-shield-alt me-2 text-success"></i>Require Email Verification
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="auto_expire_requests" name="auto_expire_requests"
+                                                           <?php echo $currentSettings['auto_expire_requests'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="auto_expire_requests">
+                                                        <i class="fas fa-clock me-2 text-warning"></i>Auto-expire Requests
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="allow_registrations" name="allow_registrations"
+                                                           <?php echo $currentSettings['allow_registrations'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="allow_registrations">
+                                                        <i class="fas fa-user-plus me-2 text-primary"></i>Allow New Registrations
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>                                    <div class="d-grid">
                                         <button type="submit" class="btn btn-primary">
                                             <i class="fas fa-save me-2"></i>Save Settings
                                         </button>
@@ -675,15 +769,6 @@ if (is_dir('../database/')) {
                 bsAlert.close();
             });
         }, 5000);
-        
-        // Confirm maintenance mode toggle
-        document.getElementById('maintenance_mode').addEventListener('change', function() {
-            if (this.checked) {
-                if (!confirm('Are you sure you want to enable maintenance mode? This will prevent users from accessing the site.')) {
-                    this.checked = false;
-                }
-            }
-        });
         
         // Password visibility toggle function
         function togglePassword(fieldId) {

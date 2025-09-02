@@ -1,6 +1,6 @@
 <?php
-session_start();
-require_once '../config/database.php';
+// Initialize secure session BEFORE database connection
+require_once '../config/session.php';
 
 header('Content-Type: application/json');
 
@@ -8,6 +8,9 @@ if (!isset($_SESSION['requestor_email'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
 }
+
+// Now safely connect to database
+require_once '../config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);

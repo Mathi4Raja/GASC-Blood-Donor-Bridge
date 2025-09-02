@@ -1,11 +1,30 @@
 <?php
+// Add cache-busting headers first
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Initialize secure session BEFORE any database connections
+require_once '../config/session.php';
+
+// Now safely include database and other configs
 require_once '../config/database.php';
 require_once '../config/email.php';
+
+// Include configuration files
+require_once '../config/database.php';
+require_once '../config/email.php';
+error_log("Session initialized - ID: " . session_id());
+error_log("CSRF token in session: " . ($_SESSION['csrf_token'] ?? 'NONE'));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // CSRF protection
-        if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+        $submittedToken = $_POST['csrf_token'] ?? '';
+        $sessionToken = $_SESSION['csrf_token'] ?? '';
+        
+        // Verify CSRF token
+        if (empty($submittedToken) || empty($sessionToken) || !hash_equals($sessionToken, $submittedToken)) {
             throw new Exception('Invalid security token. Please try again.');
         }
         
@@ -71,8 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Get available donors count
             $donorsQuery = "SELECT COUNT(*) as donor_count FROM users 
-                           WHERE blood_group = ? AND city = ? AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
-            $donorsResult = $db->query($donorsQuery, [$bloodGroup, $city]);
+                           WHERE blood_group = ? 
+                           AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
+            $donorsResult = $db->query($donorsQuery, [$bloodGroup]);
             $donorCount = $donorsResult->fetch_assoc()['donor_count'];
             
             // Send confirmation email to requester
@@ -417,7 +437,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     
                     <form method="POST" action="" id="requestForm" novalidate>
-                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                        <?php 
+                        // Ensure we have a CSRF token
+                        if (!isset($_SESSION['csrf_token'])) {
+                            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                        }
+                        $csrfToken = $_SESSION['csrf_token'];
+                        ?>
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -579,7 +606,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../assets/js/loading-manager.js"></script>
     
     <!-- Enhanced Page Loader -->
     <div class="loader-overlay" id="pageLoader">
@@ -605,9 +631,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
             
-            // Form validation (loading states handled by loading manager)
+            // Form validation
             form.addEventListener('submit', function(e) {
-                if (!form.checkValidity()) {
+                // Check form validity
+                const isValid = form.checkValidity();
+                
+                if (!isValid) {
                     e.preventDefault();
                     e.stopPropagation();
                     form.classList.add('was-validated');
