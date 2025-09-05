@@ -12,6 +12,24 @@ if (!in_array($step, ['1', '2', '3'])) {
     $step = '1';
 }
 
+// Token validation - check if token is provided and validate it (BEFORE form processing)
+if (!empty($token)) {
+    $db = new Database();
+    $sql = "SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW() AND user_type IN ('admin', 'moderator')";
+    $result = $db->query($sql, [$token]);
+    
+    if ($result->num_rows > 0) {
+        // Valid token - proceed to step 2 for password input
+        $step = '2';
+    } else {
+        // Invalid or expired token - show error on step 1 and clear any success messages
+        $error = 'Invalid or expired reset token. Please request a new password reset.';
+        $success = ''; // Clear any existing success message
+        $token = '';
+        $step = '1';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // CSRF protection
@@ -37,9 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = "SELECT id, name, email, user_type FROM users WHERE email = ? AND user_type IN ('admin', 'moderator') AND is_active = 1";
             $result = $db->query($sql, [$email]);
             
-            // Always show success message to prevent user enumeration
-            $success = "If an administrative account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
-            
             if ($result->num_rows > 0) {
                 $user = $result->fetch_assoc();
                 
@@ -56,16 +71,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if ($emailSent) {
                     logActivity($user['id'], 'admin_password_reset_requested', "Password reset requested for {$user['user_type']}: $email");
+                    $success = "If an administrative account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
                 } else {
                     logActivity($user['id'], 'admin_password_reset_email_failed', "Failed to send reset email to {$user['user_type']}: $email");
+                    throw new Exception('Failed to send reset email. Please try again later.');
                 }
             } else {
                 // Log failed attempt for security monitoring
                 logActivity(null, 'admin_password_reset_invalid_email', "Password reset attempted for non-existent admin email: $email");
+                // Always show success message to prevent user enumeration
+                $success = "If an administrative account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
             }
             
             // Clear the email field after successful submission
             $_POST['email'] = '';
+            // Stay on step 1 to show the message
             
         } elseif ($step === '2') {
             // Step 2: New password submission
@@ -115,20 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $error = $e->getMessage();
         logActivity(null, 'admin_password_reset_failed', $error . " - Email: " . ($_POST['email'] ?? 'unknown'));
-    }
-}
-
-// If we have a token in URL, validate it and go to step 2
-if (!empty($token) && $step === '1') {
-    $db = new Database();
-    $sql = "SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW() AND user_type IN ('admin', 'moderator')";
-    $result = $db->query($sql, [$token]);
-    
-    if ($result->num_rows > 0) {
-        $step = '2';
-    } else {
-        $error = 'Invalid or expired reset token. Please request a new password reset.';
-        $token = '';
     }
 }
 
@@ -524,7 +530,7 @@ if (!empty($token) && $step === '1') {
                         </div>
                     <?php endif; ?>
                     
-                    <?php if (isset($success) && !empty($success)): ?>
+                    <?php if (isset($success) && !empty($success) && ($step === '1' || $step === '3')): ?>
                         <div class="alert alert-success d-flex align-items-center mb-2">
                             <i class="fas fa-check-circle me-2"></i>
                             <?php echo htmlspecialchars($success); ?>

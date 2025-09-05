@@ -12,6 +12,24 @@ if (!in_array($step, ['1', '2', '3'])) {
     $step = '1';
 }
 
+// Token validation - check if token is provided and validate it (BEFORE form processing)
+if (!empty($token)) {
+    $db = new Database();
+    $sql = "SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW() AND user_type = 'donor'";
+    $result = $db->query($sql, [$token]);
+    
+    if ($result->num_rows > 0) {
+        // Valid token - proceed to step 2 for password input
+        $step = '2';
+    } else {
+        // Invalid or expired token - show error on step 1 and clear any success messages
+        $error = 'Invalid or expired reset token. Please request a new password reset.';
+        $success = ''; // Clear any existing success message
+        $token = '';
+        $step = '1';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // CSRF protection
@@ -37,9 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = "SELECT id, name, email, user_type FROM users WHERE email = ? AND user_type = 'donor' AND is_active = 1";
             $result = $db->query($sql, [$email]);
             
-            // Always show success message to prevent user enumeration
-            $success = "If a donor account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
-            
             if ($result->num_rows > 0) {
                 $user = $result->fetch_assoc();
                 
@@ -54,19 +69,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Send reset email using the existing email function
                 $emailSent = sendPasswordResetEmail($user['email'], $resetToken, $user['name'], 'donor');
                 
-                if (!$emailSent) {
+                if ($emailSent) {
+                    // Log security event
+                    logActivity($user['id'], 'password_reset_requested', 'Donor password reset email sent to: ' . $user['email']);
+                    $success = "If a donor account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
+                } else {
                     throw new Exception('Failed to send reset email. Please try again later.');
                 }
-                
-                // Log security event
-                logActivity($user['id'], 'password_reset_requested', 'Donor password reset email sent to: ' . $user['email']);
+            } else {
+                // Always show success message to prevent user enumeration
+                $success = "If a donor account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
             }
             
             // Clear the email field after successful submission
             $_POST['email'] = '';
+            // Stay on step 1 to show the message
             
-        } elseif ($step === '3' && !empty($token)) {
-            // Step 3: Process new password
+        } elseif ($step === '2' && !empty($token)) {
+            // Step 2: Process new password
             $newPassword = $_POST['new_password'] ?? '';
             $confirmPassword = $_POST['confirm_password'] ?? '';
             
@@ -111,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = "Your password has been successfully reset! You can now log in with your new password.";
             
             // Clear step to show success message
-            $step = 'success';
+            $step = '3';
         }
         
     } catch (Exception $e) {
@@ -119,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// For step 2, validate token and redirect to step 3
+// For step 2, additional validation (this is now redundant but kept for safety)
 if ($step === '2' && !empty($token)) {
     try {
         $db = new Database();
@@ -130,10 +150,6 @@ if ($step === '2' && !empty($token)) {
             $error = 'Invalid or expired reset token. Please request a new password reset.';
             $step = '1';
             $token = '';
-        } else {
-            // Token is valid, redirect to step 3
-            header("Location: ?step=3&token=" . urlencode($token));
-            exit;
         }
     } catch (Exception $e) {
         $error = 'Error validating reset token. Please try again.';
@@ -507,19 +523,19 @@ if ($step === '2' && !empty($token)) {
                     
                     <!-- Step Indicator -->
                     <div class="step-indicator">
-                        <div class="step <?php echo ($step === '1') ? 'active' : (in_array($step, ['2', '3']) ? 'completed' : 'inactive'); ?>">1</div>
-                        <div class="step-line <?php echo (in_array($step, ['2', '3'])) ? 'completed' : ''; ?>"></div>
-                        <div class="step <?php echo ($step === '2') ? 'active' : ($step === '3' ? 'completed' : 'inactive'); ?>">2</div>
-                        <div class="step-line <?php echo ($step === '3') ? 'completed' : ''; ?>"></div>
-                        <div class="step <?php echo ($step === '3') ? 'active' : 'inactive'; ?>">3</div>
+                        <div class="step <?php echo $step === '1' ? 'active' : ($step === '2' || $step === '3' ? 'completed' : 'inactive'); ?>">1</div>
+                        <div class="step-line <?php echo $step === '2' || $step === '3' ? 'completed' : ''; ?>"></div>
+                        <div class="step <?php echo $step === '2' ? 'active' : ($step === '3' ? 'completed' : 'inactive'); ?>">2</div>
+                        <div class="step-line <?php echo $step === '3' ? 'completed' : ''; ?>"></div>
+                        <div class="step <?php echo $step === '3' ? 'active' : 'inactive'; ?>">3</div>
                     </div>
                     
                     <p class="text-muted mb-0">
                         <?php if ($step === '1'): ?>
                             Secure donor password reset
-                        <?php elseif ($step === '3'): ?>
+                        <?php elseif ($step === '2'): ?>
                             Set your new donor password
-                        <?php elseif ($step === 'success'): ?>
+                        <?php else: ?>
                             Password reset complete!
                         <?php endif; ?>
                     </p>
@@ -533,7 +549,7 @@ if ($step === '2' && !empty($token)) {
                         </div>
                     <?php endif; ?>
                     
-                    <?php if (isset($success) && !empty($success)): ?>
+                    <?php if (isset($success) && !empty($success) && ($step === '1' || $step === '3')): ?>
                         <div class="alert alert-success d-flex align-items-center mb-2">
                             <i class="fas fa-check-circle me-2"></i>
                             <?php echo htmlspecialchars($success); ?>
@@ -573,24 +589,6 @@ if ($step === '2' && !empty($token)) {
                         </form>
                         
                     <?php elseif ($step === '2'): ?>
-                        <!-- Step 2: Token Validation (auto-redirects to step 3) -->
-                        <div class="text-center">
-                            <div class="spinner-border text-danger mb-3" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <h4>Validating Reset Link...</h4>
-                            <p class="text-muted">Verifying your reset token.</p>
-                            <p class="text-muted small">Not redirecting? <a href="?step=3&token=<?php echo urlencode($token); ?>" class="text-danger">Click here</a>.</p>
-                        </div>
-                        
-                        <script>
-                            // Fallback redirect in case server-side redirect fails
-                            setTimeout(function() {
-                                window.location.href = '?step=3&token=<?php echo urlencode($token); ?>';
-                            }, 2000); // 2 second delay
-                        </script>
-                        
-                    <?php elseif ($step === '3'): ?>
                         <div class="security-info">
                             <h6><i class="fas fa-key text-warning me-1"></i>Password Requirements</h6>
                             <small>
@@ -599,8 +597,8 @@ if ($step === '2' && !empty($token)) {
                             </small>
                         </div>
                         
-                        <!-- Step 3: New Password Input -->
-                        <form method="POST" action="?step=3&token=<?php echo htmlspecialchars($token); ?>" id="passwordForm">
+                        <!-- Step 2: New Password Input -->
+                        <form method="POST" action="?step=2&token=<?php echo htmlspecialchars($token); ?>" id="passwordForm">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             
                             <div class="mb-2">
@@ -636,8 +634,8 @@ if ($step === '2' && !empty($token)) {
                             </div>
                         </form>
                         
-                    <?php elseif ($step === 'success'): ?>
-                        <!-- Success Message -->
+                    <?php elseif ($step === '3'): ?>
+                        <!-- Step 3: Success Message -->
                         <div class="text-center">
                             <div class="mb-4">
                                 <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
@@ -659,7 +657,7 @@ if ($step === '2' && !empty($token)) {
                         </div>
                     <?php endif; ?>
                     
-                    <?php if ($step !== 'success'): ?>
+                    <?php if ($step !== '3'): ?>
                     <div class="text-center mt-3 pt-2 border-top">
                         <p class="text-muted mb-1 small">
                             Remember your password? 
@@ -696,7 +694,7 @@ if ($step === '2' && !empty($token)) {
         // Auto-focus first input
         <?php if ($step === '1'): ?>
         document.getElementById('email').focus();
-        <?php elseif ($step === '3'): ?>
+        <?php elseif ($step === '2'): ?>
         document.getElementById('new_password').focus();
         <?php endif; ?>
         
@@ -714,7 +712,7 @@ if ($step === '2' && !empty($token)) {
             });
             
             // Password validation for donor
-            <?php if ($step === '3'): ?>
+            <?php if ($step === '2'): ?>
             const passwordForm = document.getElementById('passwordForm');
             const newPasswordInput = document.getElementById('new_password');
             const confirmPasswordInput = document.getElementById('confirm_password');
