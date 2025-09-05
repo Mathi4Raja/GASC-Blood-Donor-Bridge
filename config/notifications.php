@@ -149,7 +149,7 @@ function notifyRequestorStatusUpdate($requestId, $newStatus) {
                 <p style='color: #6b7280; font-size: 14px; margin-top: 30px;'>
                     Thank you for using GASC Blood Bridge.<br>
                     <strong>GASC Blood Bridge Team</strong><br>
-                    Connecting donors with those in need 🩸❤️
+                    Connecting donors with those in need
                 </p>
             </div>
         </div>
@@ -199,7 +199,7 @@ function sendDonationEligibilityReminders() {
             $body = "
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
                 <div style='background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
-                    <h1 style='color: white; margin: 0; font-size: 28px;'>🩸 GASC Blood Bridge</h1>
+                    <h1 style='color: white; margin: 0; font-size: 28px;'>GASC Blood Bridge</h1>
                     <p style='color: #d1fae5; margin: 10px 0 0 0;'>Donation Eligibility Reminder</p>
                 </div>
                 

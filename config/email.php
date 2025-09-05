@@ -133,7 +133,7 @@ function logEmailForDevelopment($to, $subject, $body) {
  * Send notification email to donors about blood requests
  */
 function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) {
-    $subject = "🚨 Urgent Blood Request - Your Help Needed!";
+    $subject = "Urgent Blood Request - Your Help Needed!";
     
     $urgencyColor = match($requestDetails['urgency']) {
         'Critical' => '#dc2626',
@@ -145,7 +145,7 @@ function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) 
     $body = "
     <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
         <div style='background: linear-gradient(135deg, $urgencyColor, #7f1d1d); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
-            <h1 style='color: white; margin: 0; font-size: 28px;'>🩸 Blood Request Alert</h1>
+            <h1 style='color: white; margin: 0; font-size: 28px;'>Blood Request Alert</h1>
             <p style='color: #fee2e2; margin: 10px 0 0 0;'>GASC Blood Bridge</p>
         </div>
         
@@ -169,13 +169,13 @@ function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) 
             
             <div style='text-align: center; margin: 30px 0;'>
                 <a href='tel:{$requestDetails['requester_phone']}' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px;'>
-                    📞 Call Now: {$requestDetails['requester_phone']}
+                    Call Now: {$requestDetails['requester_phone']}
                 </a>
             </div>
             
             <div style='background: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;'>
                 <p style='margin: 0; color: #065f46; font-size: 14px;'>
-                    <strong>💡 Remember:</strong><br>
+                    <strong>Remember:</strong><br>
                     • Ensure you're eligible to donate (check your last donation date)<br>
                     • Carry a valid ID and stay hydrated<br>
                     • Your contribution can save lives!
@@ -232,7 +232,7 @@ function sendPasswordResetEmail($email, $resetToken, $userName, $userType = 'don
             
             <div style='text-align: center; margin: 30px 0;'>
                 <a href='$resetLink' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;'>
-                    🔐 Reset Password
+                    Reset Password
                 </a>
             </div>
             
@@ -243,7 +243,7 @@ function sendPasswordResetEmail($email, $resetToken, $userName, $userType = 'don
             
             <div style='background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;'>
                 <p style='margin: 0; color: #92400e; font-size: 14px;'>
-                    <strong>⚠️ Security Notice:</strong><br>
+                    <strong>Security Notice:</strong><br>
                     • This link expires in 1 hour<br>
                     • If you didn't request this, please ignore this email<br>
                     • Your password won't change until you click the link above
