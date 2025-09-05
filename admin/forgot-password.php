@@ -64,6 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity(null, 'admin_password_reset_invalid_email', "Password reset attempted for non-existent admin email: $email");
             }
             
+            // Clear the email field after successful submission
+            $_POST['email'] = '';
+            
         } elseif ($step === '2') {
             // Step 2: New password submission
             $newPassword = $_POST['new_password'] ?? '';
@@ -142,10 +145,22 @@ if (!empty($token) && $step === '1') {
     <style>
         .reset-container {
             min-height: 100vh;
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             display: flex;
             align-items: center;
-            padding: 20px 0;
+            padding: 10px 0;
+            position: relative;
+        }
+        
+        .reset-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.1;
         }
         
         .reset-card {
@@ -153,50 +168,83 @@ if (!empty($token) && $step === '1') {
             border-radius: 15px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.4);
             overflow: hidden;
-            max-width: 500px;
+            max-width: 420px;
+            width: 100%;
             margin: 0 auto;
-            border: 2px solid #fbbf24;
+            position: relative;
+            z-index: 2;
+            max-height: 90vh;
         }
         
         .reset-header {
-            background: linear-gradient(135deg, #fef3c7, #white);
-            padding: 2rem;
+            background: linear-gradient(135deg, #fee2e2, #white);
+            padding: 1rem 1.5rem 0.75rem;
             text-align: center;
-            border-bottom: 2px solid #fbbf24;
+            position: relative;
+        }
+        
+        .reset-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(90deg, #dc2626, #991b1b);
+            border-radius: 2px;
         }
         
         .security-badge {
-            background: #dc2626;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
             color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.7rem;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             display: inline-block;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+        }
+        
+        .reset-header h2 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+        }
+        
+        .reset-header h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+        
+        .reset-header p {
+            font-size: 0.85rem;
+            margin-bottom: 0;
         }
         
         .step-indicator {
             display: flex;
             justify-content: center;
-            margin-bottom: 20px;
+            margin: 10px 0 8px;
+            align-items: center;
         }
         
         .step {
-            width: 30px;
-            height: 30px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 10px;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 11px;
+            transition: all 0.3s ease;
         }
         
         .step.active {
             background: #dc2626;
             color: white;
+            box-shadow: 0 3px 10px rgba(220, 38, 38, 0.4);
         }
         
         .step.completed {
@@ -210,10 +258,11 @@ if (!empty($token) && $step === '1') {
         }
         
         .step-line {
-            width: 50px;
+            width: 30px;
             height: 2px;
             background: #e5e7eb;
-            margin: 14px 0;
+            margin: 0 6px;
+            transition: all 0.3s ease;
         }
         
         .step-line.completed {
@@ -230,41 +279,207 @@ if (!empty($token) && $step === '1') {
             color: #6c757d;
             cursor: pointer;
             z-index: 10;
-            padding: 5px;
+            padding: 4px;
+            transition: color 0.2s ease;
         }
         
         .position-relative .form-control {
-            padding-right: 45px;
-        }
-        
-        /* Adjust when Bootstrap validation is active */
-        .was-validated .position-relative .form-control:valid {
-            padding-right: 75px; /* Extra space for both validation checkmark and eye icon */
-        }
-        
-        .was-validated .position-relative .password-toggle {
-            right: 40px; /* Move eye icon left to avoid validation checkmark */
+            padding-right: 40px;
         }
         
         .password-toggle:hover {
             color: #dc2626;
         }
         
+        .form-control {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.9rem;
+            height: auto;
+            transition: all 0.3s ease;
+            background-image: none !important;
+        }
+        
         .form-control:focus {
             border-color: #dc2626;
-            box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
+            box-shadow: 0 0 0 0.15rem rgba(220, 38, 38, 0.25);
+        }
+        
+        /* Password validation feedback */
+        .form-control.valid {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 0.15rem rgba(16, 185, 129, 0.25) !important;
+        }
+        
+        .form-control.invalid {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 0.15rem rgba(239, 68, 68, 0.25) !important;
+        }
+        
+        .form-control.valid:focus {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.3) !important;
+        }
+        
+        .form-control.invalid:focus {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.3) !important;
+        }
+        
+        .form-label {
+            font-size: 0.85rem;
+            margin-bottom: 0.4rem;
+            color: #374151;
+        }
+        
+        .form-text {
+            font-size: 0.75rem;
+            margin-top: 0.3rem;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
         }
         
         .btn-danger:hover {
-            background-color: #b91c1c;
-            border-color: #b91c1c;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+            background: linear-gradient(135deg, #991b1b, #dc2626);
         }
         
         .security-info {
-            background: #f3f4f6;
-            border-left: 4px solid #fbbf24;
-            padding: 1rem;
-            margin: 1rem 0;
+            background: #fef2f2;
+            border-left: 3px solid #dc2626;
+            padding: 8px 12px;
+            margin: 10px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .security-info h6 {
+            margin-bottom: 4px;
+            color: #dc2626;
+            font-size: 0.8rem;
+        }
+        
+        .security-info small {
+            color: #374151;
+            line-height: 1.3;
+            font-size: 0.7rem;
+        }
+        
+        .alert {
+            padding: 0.6rem 0.8rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.85rem;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.8rem !important;
+        }
+        
+        .mb-2 {
+            margin-bottom: 0.6rem !important;
+        }
+        
+        @media (max-width: 576px) {
+            .reset-container {
+                padding: 5px;
+            }
+            
+            .reset-card {
+                margin: 0;
+                max-height: 95vh;
+                border-radius: 10px;
+            }
+            
+            .reset-header {
+                padding: 0.8rem 1rem 0.6rem;
+            }
+            
+            .reset-header h2 {
+                font-size: 1.2rem;
+            }
+            
+            .reset-header h3 {
+                font-size: 1rem;
+            }
+            
+            .step-indicator {
+                margin: 8px 0 6px;
+            }
+            
+            .step {
+                width: 20px;
+                height: 20px;
+                font-size: 10px;
+            }
+            
+            .step-line {
+                width: 25px;
+                margin: 0 4px;
+            }
+            
+            .form-control {
+                padding: 0.5rem 0.6rem;
+                font-size: 0.85rem;
+            }
+            
+            .position-relative .form-control {
+                padding-right: 35px;
+            }
+            
+            .btn-danger {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+            
+            .security-info {
+                padding: 6px 10px;
+                margin: 8px 0;
+            }
+            
+            .security-info h6 {
+                font-size: 0.75rem;
+            }
+            
+            .security-info small {
+                font-size: 0.65rem;
+            }
+        }
+        
+        @media (max-height: 600px) {
+            .reset-header {
+                padding: 0.6rem 1rem 0.4rem;
+            }
+            
+            .reset-header h2 {
+                font-size: 1.1rem;
+            }
+            
+            .reset-header h3 {
+                font-size: 0.95rem;
+            }
+            
+            .security-info {
+                padding: 6px 10px;
+                margin: 6px 0;
+            }
+            
+            .form-control {
+                padding: 0.45rem 0.6rem;
+            }
+            
+            .btn-danger {
+                padding: 0.45rem 1rem;
+            }
         }
     </style>
 </head>
@@ -301,16 +516,16 @@ if (!empty($token) && $step === '1') {
                     </p>
                 </div>
                 
-                <div class="p-4">
+                <div class="p-2">
                     <?php if (isset($error) && !empty($error)): ?>
-                        <div class="alert alert-danger d-flex align-items-center">
+                        <div class="alert alert-danger d-flex align-items-center mb-2">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             <?php echo htmlspecialchars($error); ?>
                         </div>
                     <?php endif; ?>
                     
                     <?php if (isset($success) && !empty($success)): ?>
-                        <div class="alert alert-success d-flex align-items-center">
+                        <div class="alert alert-success d-flex align-items-center mb-2">
                             <i class="fas fa-check-circle me-2"></i>
                             <?php echo htmlspecialchars($success); ?>
                         </div>
@@ -321,7 +536,7 @@ if (!empty($token) && $step === '1') {
                             <h6><i class="fas fa-info-circle text-warning me-1"></i>Security Notice</h6>
                             <small>
                                 • Reset links expire in 30 minutes<br>
-                                • All admin password resets are logged and monitored
+                                • All admin password resets are logged
                             </small>
                         </div>
                         
@@ -329,32 +544,31 @@ if (!empty($token) && $step === '1') {
                         <form method="POST" action="?step=1" id="emailForm">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             
-                            <div class="mb-3">
-                                <label for="email" class="form-label">
-                                    <i class="fas fa-envelope text-danger me-1"></i>Administrative Email Address
+                            <div class="mb-2">
+                                <label for="email" class="form-label fw-semibold">
+                                    Administrative Email Address
                                 </label>
                                 <input type="email" class="form-control" id="email" name="email" required
                                        placeholder="admin@gasc.edu"
                                        value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
-                                <div class="form-text">
-                                    Enter the email address associated with your admin account.
+                                <div class="form-text small">
+                                    Enter your admin email address.
                                 </div>
                             </div>
                             
-                            <div class="d-grid mb-3">
+                            <div class="d-grid mb-2">
                                 <button type="submit" class="btn btn-danger">
-                                    <i class="fas fa-paper-plane me-2"></i>Send Secure Reset Link
+                                    <i class="fas fa-paper-plane me-2"></i>Send Reset Link
                                 </button>
                             </div>
                         </form>
                         
                     <?php elseif ($step === '2'): ?>
                         <div class="security-info">
-                            <h6><i class="fas fa-key text-warning me-1"></i>Admin Password Requirements</h6>
+                            <h6><i class="fas fa-key text-warning me-1"></i>Password Requirements</h6>
                             <small>
                                 • Minimum 8 characters<br>
-                                • Must include uppercase, lowercase, number, and special character<br>
-                                • Cannot reuse previous passwords
+                                • Mixed case, numbers, and symbols
                             </small>
                         </div>
                         
@@ -362,38 +576,35 @@ if (!empty($token) && $step === '1') {
                         <form method="POST" action="?step=2&token=<?php echo htmlspecialchars($token); ?>" id="passwordForm">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             
-                            <div class="mb-3">
-                                <label for="new_password" class="form-label">
-                                    <i class="fas fa-lock text-danger me-1"></i>New Admin Password
+                            <div class="mb-2">
+                                <label for="new_password" class="form-label fw-semibold">
+                                    New Admin Password
                                 </label>
                                 <div class="position-relative">
                                     <input type="password" class="form-control" id="new_password" name="new_password" 
-                                           required minlength="8" placeholder="Enter your new password">
+                                           required minlength="8" placeholder="Enter new password">
                                     <button type="button" class="password-toggle" onclick="togglePassword('new_password', 'toggleIcon1')">
                                         <i class="fas fa-eye" id="toggleIcon1"></i>
                                     </button>
                                 </div>
-                                <div class="form-text">
-                                    Must be at least 8 characters with mixed case, numbers, and symbols.
-                                </div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label for="confirm_password" class="form-label">
-                                    <i class="fas fa-lock text-danger me-1"></i>Confirm New Password
+                            <div class="mb-2">
+                                <label for="confirm_password" class="form-label fw-semibold">
+                                    Confirm Password
                                 </label>
                                 <div class="position-relative">
                                     <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                                           required minlength="8" placeholder="Confirm your new password">
+                                           required minlength="8" placeholder="Confirm password">
                                     <button type="button" class="password-toggle" onclick="togglePassword('confirm_password', 'toggleIcon2')">
                                         <i class="fas fa-eye" id="toggleIcon2"></i>
                                     </button>
                                 </div>
                             </div>
                             
-                            <div class="d-grid mb-3">
+                            <div class="d-grid mb-2">
                                 <button type="submit" class="btn btn-danger">
-                                    <i class="fas fa-key me-2"></i>Update Admin Password
+                                    <i class="fas fa-key me-2"></i>Update Password
                                 </button>
                             </div>
                         </form>
@@ -422,12 +633,12 @@ if (!empty($token) && $step === '1') {
                     <?php endif; ?>
                     
                     <?php if ($step !== '3'): ?>
-                    <div class="text-center mt-4 pt-3 border-top">
-                        <p class="text-muted mb-2">
+                    <div class="text-center mt-3 pt-2 border-top">
+                        <p class="text-muted mb-1 small">
                             Remember your password? 
                             <a href="login.php" class="text-danger text-decoration-none fw-semibold">Admin Login</a>
                         </p>
-                        <a href="../index.php" class="text-muted text-decoration-none">
+                        <a href="../index.php" class="text-muted text-decoration-none small">
                             <i class="fas fa-arrow-left me-1"></i>Back to Home
                         </a>
                     </div>
@@ -478,6 +689,45 @@ if (!empty($token) && $step === '1') {
             // Password validation for admin
             <?php if ($step === '2'): ?>
             const passwordForm = document.getElementById('passwordForm');
+            const newPasswordInput = document.getElementById('new_password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+            
+            // Real-time password validation
+            function validatePasswords() {
+                const password = newPasswordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                
+                // Password strength validation
+                const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+                const isPasswordStrong = password.length >= 8 && strongPassword.test(password);
+                
+                // Update new password field styling
+                if (password.length === 0) {
+                    newPasswordInput.classList.remove('valid', 'invalid');
+                } else if (isPasswordStrong) {
+                    newPasswordInput.classList.remove('invalid');
+                    newPasswordInput.classList.add('valid');
+                } else {
+                    newPasswordInput.classList.remove('valid');
+                    newPasswordInput.classList.add('invalid');
+                }
+                
+                // Update confirm password field styling
+                if (confirmPassword.length === 0) {
+                    confirmPasswordInput.classList.remove('valid', 'invalid');
+                } else if (password === confirmPassword && isPasswordStrong) {
+                    confirmPasswordInput.classList.remove('invalid');
+                    confirmPasswordInput.classList.add('valid');
+                } else {
+                    confirmPasswordInput.classList.remove('valid');
+                    confirmPasswordInput.classList.add('invalid');
+                }
+            }
+            
+            // Add event listeners for real-time validation
+            newPasswordInput.addEventListener('input', validatePasswords);
+            confirmPasswordInput.addEventListener('input', validatePasswords);
+            
             passwordForm.addEventListener('submit', function(e) {
                 const password = document.getElementById('new_password').value;
                 const confirmPassword = document.getElementById('confirm_password').value;

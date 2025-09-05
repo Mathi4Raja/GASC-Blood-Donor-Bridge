@@ -62,6 +62,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity($user['id'], 'password_reset_requested', 'Donor password reset email sent to: ' . $user['email']);
             }
             
+            // Clear the email field after successful submission
+            $_POST['email'] = '';
+            
         } elseif ($step === '3' && !empty($token)) {
             // Step 3: Process new password
             $newPassword = $_POST['new_password'] ?? '';
@@ -144,60 +147,135 @@ if ($step === '2' && !empty($token)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - GASC Blood Bridge</title>
+    <title>Donor Password Reset - GASC Blood Bridge</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="../assets/css/style.css" rel="stylesheet">
     <style>
-        body {
-            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
         .reset-container {
             min-height: 100vh;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
+            padding: 10px 0;
+            position: relative;
+        }
+        
+        .reset-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.1;
         }
         
         .reset-card {
             background: white;
             border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
             overflow: hidden;
+            max-width: 420px;
             width: 100%;
-            max-width: 500px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            max-height: 90vh;
         }
         
         .reset-header {
+            background: linear-gradient(135deg, #fee2e2, #white);
+            padding: 1rem 1.5rem 0.75rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .reset-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(90deg, #dc2626, #991b1b);
+            border-radius: 2px;
+        }
+        
+        .security-badge {
             background: linear-gradient(135deg, #dc2626, #991b1b);
             color: white;
-            padding: 30px;
-            text-align: center;
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
         }
         
-        .reset-body {
-            padding: 40px;
+        .reset-header h2 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
         }
         
-        .form-control:focus {
-            border-color: #dc2626;
-            box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
+        .reset-header h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
         }
         
-        .btn-danger {
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
-            border: none;
-            padding: 12px 30px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+        .reset-header p {
+            font-size: 0.85rem;
+            margin-bottom: 0;
         }
         
-        .btn-danger:hover {
-            background: linear-gradient(135deg, #b91c1c, #991b1b);
-            transform: translateY(-1px);
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0 8px;
+            align-items: center;
+        }
+        
+        .step {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active {
+            background: #dc2626;
+            color: white;
+            box-shadow: 0 3px 10px rgba(220, 38, 38, 0.4);
+        }
+        
+        .step.completed {
+            background: #10b981;
+            color: white;
+        }
+        
+        .step.inactive {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
+        
+        .step-line {
+            width: 30px;
+            height: 2px;
+            background: #e5e7eb;
+            margin: 0 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .step-line.completed {
+            background: #10b981;
         }
         
         .password-toggle {
@@ -205,82 +283,228 @@ if ($step === '2' && !empty($token)) {
             right: 10px;
             top: 50%;
             transform: translateY(-50%);
-            background: none;
             border: none;
+            background: none;
             color: #6c757d;
             cursor: pointer;
+            z-index: 10;
+            padding: 4px;
+            transition: color 0.2s ease;
+        }
+        
+        .position-relative .form-control {
+            padding-right: 40px;
         }
         
         .password-toggle:hover {
             color: #dc2626;
         }
         
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
+        .form-control {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.9rem;
+            height: auto;
+            transition: all 0.3s ease;
+            background-image: none !important;
         }
         
-        .step {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 10px;
-            font-weight: bold;
-            color: white;
+        .form-control:focus {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 0.15rem rgba(220, 38, 38, 0.25);
         }
         
-        .step.active {
-            background: #dc2626;
+        /* Password validation feedback */
+        .form-control.valid {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 0.15rem rgba(16, 185, 129, 0.25) !important;
         }
         
-        .step.completed {
-            background: #10b981;
+        .form-control.invalid {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 0.15rem rgba(239, 68, 68, 0.25) !important;
         }
         
-        .step.inactive {
-            background: #9ca3af;
+        .form-control.valid:focus {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.3) !important;
         }
         
-        .step-line {
-            height: 2px;
-            width: 50px;
-            background: #e5e7eb;
-            margin-top: 19px;
+        .form-control.invalid:focus {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.3) !important;
         }
         
-        .step-line.completed {
-            background: #10b981;
+        .form-label {
+            font-size: 0.85rem;
+            margin-bottom: 0.4rem;
+            color: #374151;
+        }
+        
+        .form-text {
+            font-size: 0.75rem;
+            margin-top: 0.3rem;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+            background: linear-gradient(135deg, #991b1b, #dc2626);
         }
         
         .security-info {
-            background: #f0f9ff;
-            border: 1px solid #bae6fd;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
+            background: #fef2f2;
+            border-left: 3px solid #dc2626;
+            padding: 8px 12px;
+            margin: 10px 0;
+            border-radius: 0 6px 6px 0;
         }
         
-        .security-info .fa-shield-alt {
-            color: #0284c7;
+        .security-info h6 {
+            margin-bottom: 4px;
+            color: #dc2626;
+            font-size: 0.8rem;
+        }
+        
+        .security-info small {
+            color: #374151;
+            line-height: 1.3;
+            font-size: 0.7rem;
+        }
+        
+        .alert {
+            padding: 0.6rem 0.8rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.85rem;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.8rem !important;
+        }
+        
+        .mb-2 {
+            margin-bottom: 0.6rem !important;
+        }
+        
+        @media (max-width: 576px) {
+            .reset-container {
+                padding: 5px;
+            }
+            
+            .reset-card {
+                margin: 0;
+                max-height: 95vh;
+                border-radius: 10px;
+            }
+            
+            .reset-header {
+                padding: 0.8rem 1rem 0.6rem;
+            }
+            
+            .reset-header h2 {
+                font-size: 1.2rem;
+            }
+            
+            .reset-header h3 {
+                font-size: 1rem;
+            }
+            
+            .step-indicator {
+                margin: 8px 0 6px;
+            }
+            
+            .step {
+                width: 20px;
+                height: 20px;
+                font-size: 10px;
+            }
+            
+            .step-line {
+                width: 25px;
+                margin: 0 4px;
+            }
+            
+            .form-control {
+                padding: 0.5rem 0.6rem;
+                font-size: 0.85rem;
+            }
+            
+            .position-relative .form-control {
+                padding-right: 35px;
+            }
+            
+            .btn-danger {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+            
+            .security-info {
+                padding: 6px 10px;
+                margin: 8px 0;
+            }
+            
+            .security-info h6 {
+                font-size: 0.75rem;
+            }
+            
+            .security-info small {
+                font-size: 0.65rem;
+            }
+        }
+        
+        @media (max-height: 600px) {
+            .reset-header {
+                padding: 0.6rem 1rem 0.4rem;
+            }
+            
+            .reset-header h2 {
+                font-size: 1.1rem;
+            }
+            
+            .reset-header h3 {
+                font-size: 0.95rem;
+            }
+            
+            .security-info {
+                padding: 6px 10px;
+                margin: 6px 0;
+            }
+            
+            .form-control {
+                padding: 0.45rem 0.6rem;
+            }
+            
+            .btn-danger {
+                padding: 0.45rem 1rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="reset-container">
-        <div class="reset-card">
-            <div class="reset-header">
-                <h1 class="mb-2">
-                    <i class="fas fa-key me-2"></i>Reset Password
-                </h1>
-                <p class="mb-0 opacity-75">GASC Blood Bridge - Donor Portal</p>
-            </div>
-            
-            <div class="reset-body">
-                <?php if ($step !== 'success'): ?>
+        <div class="container">
+            <div class="reset-card">
+                <div class="reset-header">
+                    <div class="security-badge">
+                        <i class="fas fa-user-heart me-1"></i>DONOR PORTAL
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center mb-3">
+                        <h2 class="text-danger fw-bold mb-0">GASC Blood Bridge</h2>
+                    </div>
+                    <h3 class="text-dark mb-2">Donor Password Reset</h3>
+                    
                     <!-- Step Indicator -->
                     <div class="step-indicator">
                         <div class="step <?php echo ($step === '1') ? 'active' : (in_array($step, ['2', '3']) ? 'completed' : 'inactive'); ?>">1</div>
@@ -289,155 +513,170 @@ if ($step === '2' && !empty($token)) {
                         <div class="step-line <?php echo ($step === '3') ? 'completed' : ''; ?>"></div>
                         <div class="step <?php echo ($step === '3') ? 'active' : 'inactive'; ?>">3</div>
                     </div>
-                <?php endif; ?>
-                
-                <?php if ($error): ?>
-                    <div class="alert alert-danger alert-dismissible fade show">
-                        <i class="fas fa-exclamation-triangle me-2"></i><?php echo htmlspecialchars($error); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if ($success): ?>
-                    <div class="alert alert-success alert-dismissible fade show">
-                        <i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($success); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if ($step === '1'): ?>
-                    <!-- Step 1: Email Input -->
-                    <h4 class="mb-3">Enter Your Email Address</h4>
-                    <p class="text-muted mb-4">
-                        Enter the email address associated with your donor account and we'll send you a link to reset your password.
+                    
+                    <p class="text-muted mb-0">
+                        <?php if ($step === '1'): ?>
+                            Secure donor password reset
+                        <?php elseif ($step === '3'): ?>
+                            Set your new donor password
+                        <?php elseif ($step === 'success'): ?>
+                            Password reset complete!
+                        <?php endif; ?>
                     </p>
-                    
-                    <form method="POST">
-                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                        
-                        <div class="mb-3">
-                            <label for="email" class="form-label">
-                                <i class="fas fa-envelope text-danger me-1"></i>Email Address
-                            </label>
-                            <input type="email" class="form-control" id="email" name="email" 
-                                   required placeholder="Enter your registered email address"
-                                   value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                </div>
+                
+                <div class="p-2">
+                    <?php if (isset($error) && !empty($error)): ?>
+                        <div class="alert alert-danger d-flex align-items-center mb-2">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <?php echo htmlspecialchars($error); ?>
                         </div>
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-danger">
-                                <i class="fas fa-paper-plane me-2"></i>Send Reset Link
-                            </button>
+                    <?php endif; ?>
+                    
+                    <?php if (isset($success) && !empty($success)): ?>
+                        <div class="alert alert-success d-flex align-items-center mb-2">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <?php echo htmlspecialchars($success); ?>
                         </div>
-                    </form>
+                    <?php endif; ?>
                     
-                    <div class="security-info">
-                        <h6 class="mb-2">
-                            <i class="fas fa-shield-alt me-2"></i>Security Information
-                        </h6>
-                        <ul class="mb-0 small">
-                            <li>Reset links expire after 1 hour for security</li>
-                            <li>Only active donor accounts can request password resets</li>
-                            <li>You'll receive an email if your account exists</li>
-                        </ul>
-                    </div>
-                    
-                <?php elseif ($step === '2'): ?>
-                    <!-- Step 2: Token Validation (auto-redirects to step 3) -->
-                    <div class="text-center">
-                        <div class="spinner-border text-danger mb-3" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <h4>Validating Reset Link...</h4>
-                        <p class="text-muted">Please wait while we verify your reset token.</p>
-                        <p class="text-muted small">If this page doesn't redirect automatically, <a href="?step=3&token=<?php echo urlencode($token); ?>" class="text-danger">click here</a>.</p>
-                    </div>
-                    
-                    <script>
-                        // Fallback redirect in case server-side redirect fails
-                        setTimeout(function() {
-                            window.location.href = '?step=3&token=<?php echo urlencode($token); ?>';
-                        }, 2000); // 2 second delay
-                    </script>
-                    
-                <?php elseif ($step === '3'): ?>
-                    <!-- Step 3: New Password Form -->
-                    <h4 class="mb-3">Create New Password</h4>
-                    <p class="text-muted mb-4">
-                        Choose a strong password for your donor account.
-                    </p>
-                    
-                    <form method="POST" id="resetForm">
-                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                        
-                        <div class="mb-3">
-                            <label for="new_password" class="form-label">
-                                <i class="fas fa-lock text-danger me-1"></i>New Password
-                            </label>
-                            <div class="position-relative">
-                                <input type="password" class="form-control" id="new_password" name="new_password" 
-                                       required placeholder="Enter your new password" minlength="8">
-                                <button type="button" class="password-toggle" onclick="togglePassword('new_password', 'toggleIcon1')">
-                                    <i class="fas fa-eye" id="toggleIcon1"></i>
-                                </button>
-                            </div>
-                            <small class="text-muted">
-                                Must be at least 8 characters with uppercase, lowercase, and numbers
+                    <?php if ($step === '1'): ?>
+                        <div class="security-info">
+                            <h6><i class="fas fa-info-circle text-warning me-1"></i>Security Notice</h6>
+                            <small>
+                                • Reset links expire in 1 hour<br>
+                                • Only active donor accounts allowed
                             </small>
                         </div>
                         
-                        <div class="mb-4">
-                            <label for="confirm_password" class="form-label">
-                                <i class="fas fa-lock text-danger me-1"></i>Confirm New Password
-                            </label>
-                            <div class="position-relative">
-                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                                       required placeholder="Confirm your new password" minlength="8">
-                                <button type="button" class="password-toggle" onclick="togglePassword('confirm_password', 'toggleIcon2')">
-                                    <i class="fas fa-eye" id="toggleIcon2"></i>
+                        <!-- Step 1: Email Input -->
+                        <form method="POST" action="?step=1" id="emailForm">
+                            <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                            
+                            <div class="mb-2">
+                                <label for="email" class="form-label fw-semibold">
+                                    Donor Email Address
+                                </label>
+                                <input type="email" class="form-control" id="email" name="email" required
+                                       placeholder="donor@example.com"
+                                       value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                                <div class="form-text small">
+                                    Enter your registered donor email address.
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid mb-2">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-paper-plane me-2"></i>Send Reset Link
                                 </button>
                             </div>
+                        </form>
+                        
+                    <?php elseif ($step === '2'): ?>
+                        <!-- Step 2: Token Validation (auto-redirects to step 3) -->
+                        <div class="text-center">
+                            <div class="spinner-border text-danger mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h4>Validating Reset Link...</h4>
+                            <p class="text-muted">Verifying your reset token.</p>
+                            <p class="text-muted small">Not redirecting? <a href="?step=3&token=<?php echo urlencode($token); ?>" class="text-danger">Click here</a>.</p>
                         </div>
                         
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-danger">
-                                <i class="fas fa-check me-2"></i>Reset Password
-                            </button>
+                        <script>
+                            // Fallback redirect in case server-side redirect fails
+                            setTimeout(function() {
+                                window.location.href = '?step=3&token=<?php echo urlencode($token); ?>';
+                            }, 2000); // 2 second delay
+                        </script>
+                        
+                    <?php elseif ($step === '3'): ?>
+                        <div class="security-info">
+                            <h6><i class="fas fa-key text-warning me-1"></i>Password Requirements</h6>
+                            <small>
+                                • Minimum 8 characters<br>
+                                • Mixed case, numbers required
+                            </small>
                         </div>
-                    </form>
+                        
+                        <!-- Step 3: New Password Input -->
+                        <form method="POST" action="?step=3&token=<?php echo htmlspecialchars($token); ?>" id="passwordForm">
+                            <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                            
+                            <div class="mb-2">
+                                <label for="new_password" class="form-label fw-semibold">
+                                    New Donor Password
+                                </label>
+                                <div class="position-relative">
+                                    <input type="password" class="form-control" id="new_password" name="new_password" 
+                                           required minlength="8" placeholder="Enter new password">
+                                    <button type="button" class="password-toggle" onclick="togglePassword('new_password', 'toggleIcon1')">
+                                        <i class="fas fa-eye" id="toggleIcon1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label for="confirm_password" class="form-label fw-semibold">
+                                    Confirm Password
+                                </label>
+                                <div class="position-relative">
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
+                                           required minlength="8" placeholder="Confirm password">
+                                    <button type="button" class="password-toggle" onclick="togglePassword('confirm_password', 'toggleIcon2')">
+                                        <i class="fas fa-eye" id="toggleIcon2"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid mb-2">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-key me-2"></i>Update Password
+                                </button>
+                            </div>
+                        </form>
+                        
+                    <?php elseif ($step === 'success'): ?>
+                        <!-- Success Message -->
+                        <div class="text-center">
+                            <div class="mb-4">
+                                <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                            </div>
+                            
+                            <div class="security-info text-start">
+                                <h6><i class="fas fa-shield-alt text-success me-1"></i>Security Confirmation</h6>
+                                <small>
+                                    • Your donor password has been successfully updated<br>
+                                    • You can now log in with your new password
+                                </small>
+                            </div>
+                            
+                            <div class="d-grid gap-2 mt-3">
+                                <a href="login.php" class="btn btn-danger">
+                                    <i class="fas fa-sign-in-alt me-2"></i>Donor Login
+                                </a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     
-                <?php elseif ($step === 'success'): ?>
-                    <!-- Success Message -->
-                    <div class="text-center">
-                        <div class="mb-4">
-                            <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
-                        </div>
-                        <h4 class="text-success mb-3">Password Reset Successful!</h4>
-                        <p class="text-muted mb-4">
-                            Your password has been updated successfully. You can now log in to your donor account with your new password.
+                    <?php if ($step !== 'success'): ?>
+                    <div class="text-center mt-3 pt-2 border-top">
+                        <p class="text-muted mb-1 small">
+                            Remember your password? 
+                            <a href="login.php" class="text-danger text-decoration-none fw-semibold">Donor Login</a>
                         </p>
-                        <div class="d-grid">
-                            <a href="login.php" class="btn btn-danger">
-                                <i class="fas fa-sign-in-alt me-2"></i>Go to Login
-                            </a>
-                        </div>
+                        <a href="../index.php" class="text-muted text-decoration-none small">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Home
+                        </a>
                     </div>
-                <?php endif; ?>
-                
-                <div class="text-center mt-4 pt-3 border-top">
-                    <a href="login.php" class="text-danger text-decoration-none">
-                        <i class="fas fa-arrow-left me-1"></i>Back to Login
-                    </a>
-                    <span class="mx-2 text-muted">|</span>
-                    <a href="../index.php" class="text-muted text-decoration-none">
-                        <i class="fas fa-home me-1"></i>Back to Home
-                    </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function togglePassword(inputId, iconId) {
             const passwordInput = document.getElementById(inputId);
@@ -454,50 +693,87 @@ if ($step === '2' && !empty($token)) {
             }
         }
         
-        // Password strength validation
-        if (document.getElementById('resetForm')) {
-            document.getElementById('resetForm').addEventListener('submit', function(e) {
-                const newPassword = document.getElementById('new_password').value;
+        // Auto-focus first input
+        <?php if ($step === '1'): ?>
+        document.getElementById('email').focus();
+        <?php elseif ($step === '3'): ?>
+        document.getElementById('new_password').focus();
+        <?php endif; ?>
+        
+        // Form validation
+        document.addEventListener('DOMContentLoaded', function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (!form.checkValidity()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                });
+            });
+            
+            // Password validation for donor
+            <?php if ($step === '3'): ?>
+            const passwordForm = document.getElementById('passwordForm');
+            const newPasswordInput = document.getElementById('new_password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+            
+            // Real-time password validation
+            function validatePasswords() {
+                const password = newPasswordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                
+                // Password strength validation (less strict than admin)
+                const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+                const isPasswordStrong = password.length >= 8 && strongPassword.test(password);
+                
+                // Update new password field styling
+                if (password.length === 0) {
+                    newPasswordInput.classList.remove('valid', 'invalid');
+                } else if (isPasswordStrong) {
+                    newPasswordInput.classList.remove('invalid');
+                    newPasswordInput.classList.add('valid');
+                } else {
+                    newPasswordInput.classList.remove('valid');
+                    newPasswordInput.classList.add('invalid');
+                }
+                
+                // Update confirm password field styling
+                if (confirmPassword.length === 0) {
+                    confirmPasswordInput.classList.remove('valid', 'invalid');
+                } else if (password === confirmPassword && isPasswordStrong) {
+                    confirmPasswordInput.classList.remove('invalid');
+                    confirmPasswordInput.classList.add('valid');
+                } else {
+                    confirmPasswordInput.classList.remove('valid');
+                    confirmPasswordInput.classList.add('invalid');
+                }
+            }
+            
+            // Add event listeners for real-time validation
+            newPasswordInput.addEventListener('input', validatePasswords);
+            confirmPasswordInput.addEventListener('input', validatePasswords);
+            
+            passwordForm.addEventListener('submit', function(e) {
+                const password = document.getElementById('new_password').value;
                 const confirmPassword = document.getElementById('confirm_password').value;
                 
-                if (newPassword !== confirmPassword) {
-                    e.preventDefault();
-                    alert('Passwords do not match. Please try again.');
-                    return false;
-                }
-                
-                if (newPassword.length < 8) {
-                    e.preventDefault();
-                    alert('Password must be at least 8 characters long.');
-                    return false;
-                }
-                
-                if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+                // Check password strength
+                const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+                if (!strongPassword.test(password)) {
                     e.preventDefault();
                     alert('Password must contain at least one uppercase letter, one lowercase letter, and one number.');
                     return false;
                 }
-            });
-            
-            // Real-time password matching feedback
-            document.getElementById('confirm_password').addEventListener('input', function() {
-                const newPassword = document.getElementById('new_password').value;
-                const confirmPassword = this.value;
                 
-                if (confirmPassword && newPassword !== confirmPassword) {
-                    this.classList.add('is-invalid');
-                } else {
-                    this.classList.remove('is-invalid');
+                if (password !== confirmPassword) {
+                    e.preventDefault();
+                    alert('Passwords do not match. Please try again.');
+                    return false;
                 }
             });
-        }
-        
-        // Auto-focus first input
-        document.addEventListener('DOMContentLoaded', function() {
-            const firstInput = document.querySelector('input[type="email"], input[type="password"]');
-            if (firstInput) {
-                firstInput.focus();
-            }
+            <?php endif; ?>
         });
     </script>
 </body>

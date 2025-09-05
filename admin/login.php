@@ -212,6 +212,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
         }
         
+        /* Hide validation icons */
+        .form-control {
+            background-image: none !important;
+        }
+        
+        .form-control:valid {
+            background-image: none !important;
+        }
+        
+        .form-control:invalid {
+            background-image: none !important;
+        }
+        
+        .was-validated .form-control:valid {
+            background-image: none !important;
+        }
+        
+        .was-validated .form-control:invalid {
+            background-image: none !important;
+        }
+        
         .form-floating .form-select {
             border-radius: 12px;
             border: 2px solid #e9ecef;
@@ -436,7 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="email" class="form-control" id="email" name="email" 
                                    value="<?php echo $email ?? ''; ?>" placeholder="admin@gasc.edu" required>
                             <label for="email">
-                                <i class="fas fa-envelope text-danger me-1"></i>Email Address
+                                Email Address
                             </label>
                             <div class="invalid-feedback">Please provide a valid email address.</div>
                         </div>
@@ -446,7 +467,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="password" class="form-control" id="password" name="password" 
                                    placeholder="Password" required>
                             <label for="password">
-                                <i class="fas fa-lock text-danger me-1"></i>Password
+                                Password
                             </label>
                             <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y me-2" 
                                     id="togglePassword" style="z-index: 10;">
