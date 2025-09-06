@@ -58,7 +58,6 @@ GASC-Blood-Donor-Bridge/
 ### **📊 Database Tables:**
 - `users` - Donor/admin/moderator accounts
 - `blood_requests` - Blood request management
-- `otp_verifications` - Email verification system
 - `donor_availability_history` - Donation tracking
 - `activity_logs` - System audit trail
 - `system_settings` - Configuration management

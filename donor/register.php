@@ -2,9 +2,15 @@
 require_once '../config/database.php';
 require_once '../config/email.php';
 require_once '../config/site.php';
+require_once '../config/system-settings.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
+        // Check if registrations are allowed
+        if (!SystemSettings::areRegistrationsAllowed()) {
+            throw new Exception('New user registrations are currently disabled. Please contact an administrator.');
+        }
+        
         // CSRF protection
         if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
             throw new Exception('Invalid security token. Please try again.');
@@ -80,53 +86,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $verificationToken = generateSecureToken();
         $hashedPassword = hashPassword($password);
         
+        // Check if email verification is required
+        $requireEmailVerification = SystemSettings::isEmailVerificationRequired();
+        $emailVerified = !$requireEmailVerification; // If verification not required, mark as verified
+        
         // Insert new donor
-        $sql = "INSERT INTO users (roll_no, name, email, phone, password_hash, user_type, gender, date_of_birth, class, blood_group, city, email_verification_token) 
-                VALUES (?, ?, ?, ?, ?, 'donor', ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO users (roll_no, name, email, phone, password_hash, user_type, gender, date_of_birth, class, blood_group, city, email_verification_token, email_verified) 
+                VALUES (?, ?, ?, ?, ?, 'donor', ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $db->prepare($sql);
-        $stmt->bind_param('sssssssssss', 
+        $stmt->bind_param('ssssssssssssi', 
             $rollNo, $name, $email, $phone, $hashedPassword, 
-            $gender, $dateOfBirth, $class, $bloodGroup, $city, $verificationToken
+            $gender, $dateOfBirth, $class, $bloodGroup, $city, 
+            $requireEmailVerification ? $verificationToken : null, $emailVerified
         );
         
         if ($stmt->execute()) {
             $userId = $db->lastInsertId();
             
-            // Send verification email
-            $verificationLink = siteUrl("donor/verify-email.php?token=" . $verificationToken);
-            $emailSubject = "GASC Blood Bridge - Verify Your Email";
-            $emailBody = "
-            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
-                    <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
-                </div>
-                <div style='padding: 30px; background: #f8f9fa;'>
-                    <h2>Welcome $name!</h2>
-                    <p>Thank you for registering as a blood donor with GASC Blood Bridge.</p>
-                    <p>To complete your registration, please click the button below to verify your email address:</p>
-                    <div style='text-align: center; margin: 30px 0;'>
-                        <a href='$verificationLink' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email Address</a>
+            if ($requireEmailVerification) {
+                // Send verification email only if verification is required
+                $verificationLink = siteUrl("donor/verify-email.php?token=" . $verificationToken);
+                $emailSubject = "GASC Blood Bridge - Verify Your Email";
+                $emailBody = "
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                    <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
+                        <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
                     </div>
-                    <p>Or copy and paste this link in your browser:</p>
-                    <p style='word-break: break-all; background: white; padding: 10px; border-radius: 5px;'>$verificationLink</p>
-                    <p>This link will expire in 24 hours.</p>
-                    <hr style='margin: 30px 0; border: 1px solid #dee2e6;'>
-                    <p style='color: #6c757d; font-size: 14px;'>
-                        If you didn't create this account, please ignore this email.<br>
-                        Best regards,<br>
-                        GASC Blood Bridge Team
-                    </p>
+                    <div style='padding: 30px; background: #f8f9fa;'>
+                        <h2>Welcome $name!</h2>
+                        <p>Thank you for registering as a blood donor with GASC Blood Bridge.</p>
+                        <p>To complete your registration, please click the button below to verify your email address:</p>
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <a href='$verificationLink' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email Address</a>
+                        </div>
+                        <p>Or copy and paste this link in your browser:</p>
+                        <p style='word-break: break-all; background: white; padding: 10px; border-radius: 5px;'>$verificationLink</p>
+                        <p>This link will expire in 24 hours.</p>
+                        <hr style='margin: 30px 0; border: 1px solid #dee2e6;'>
+                        <p style='color: #6c757d; font-size: 14px;'>
+                            If you didn't create this account, please ignore this email.<br>
+                            Best regards,<br>
+                            GASC Blood Bridge Team
+                        </p>
+                    </div>
                 </div>
-            </div>
-            ";
-            
-            sendEmail($email, $emailSubject, $emailBody);
-            
-            // Log activity
-            logActivity($userId, 'donor_registration', "New donor registered: $name ($email)");
-            
-            $success = "Registration successful! Please check your email to verify your account.";
+                ";
+                
+                sendEmail($email, $emailSubject, $emailBody);
+                
+                // Log activity for verification required
+                logActivity($userId, 'donor_registration', "New donor registered: $name ($email) - email verification required");
+                
+                $success = "Registration successful! Please check your email to verify your account.";
+            } else {
+                // Log activity for auto-verified users
+                logActivity($userId, 'donor_registration', "New donor registered: $name ($email) - auto-verified");
+                
+                $success = "Registration successful! You can now log in to your account.";
+            }
             
         } else {
             throw new Exception('Registration failed. Please try again.');

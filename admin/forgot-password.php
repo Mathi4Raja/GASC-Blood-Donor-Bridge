@@ -67,11 +67,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->query($updateSQL, [$resetToken, $expiresAt, $user['id']]);
                 
                 // Send reset email
-                $emailSent = sendPasswordResetEmail($email, $resetToken, $user['name'], $user['user_type']);
+                $emailResult = sendPasswordResetEmail($email, $resetToken, $user['name'], $user['user_type']);
                 
-                if ($emailSent) {
-                    logActivity($user['id'], 'admin_password_reset_requested', "Password reset requested for {$user['user_type']}: $email");
-                    $success = "If an administrative account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
+                // Handle both old boolean return and new array return
+                $emailSent = false;
+                $emailLogged = false;
+                
+                if (is_array($emailResult)) {
+                    $emailSent = $emailResult['email_sent'] ?? false;
+                    $emailLogged = $emailResult['logged'] ?? false;
+                } else {
+                    $emailSent = $emailResult;
+                }
+                
+                if ($emailSent || $emailLogged) {
+                    $logMessage = $emailLogged ? 'Password reset logged (emails disabled)' : 'Password reset email sent';
+                    logActivity($user['id'], 'admin_password_reset_requested', "$logMessage for {$user['user_type']}: $email");
+                    
+                    if ($emailLogged) {
+                        $success = "Password reset request has been logged. Please contact another administrator to reset your password as email notifications are currently disabled.";
+                    } else {
+                        $success = "If an administrative account exists with this email address, a password reset link has been sent. Please check your inbox and spam folder.";
+                    }
                 } else {
                     logActivity($user['id'], 'admin_password_reset_email_failed', "Failed to send reset email to {$user['user_type']}: $email");
                     throw new Exception('Failed to send reset email. Please try again later.');

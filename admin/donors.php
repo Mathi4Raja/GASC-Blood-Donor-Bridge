@@ -1017,6 +1017,11 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                                         <div class="small text-muted mb-1">
                                             <i class="fas fa-phone me-1"></i><?php echo htmlspecialchars($donor['phone']); ?>
                                         </div>
+                                        <?php if ($donor['gender']): ?>
+                                            <div class="small text-muted mb-1">
+                                                <i class="fas <?php echo $donor['gender'] === 'Male' ? 'fa-mars text-primary' : 'fa-venus text-danger'; ?> me-1"></i><?php echo htmlspecialchars($donor['gender']); ?>
+                                            </div>
+                                        <?php endif; ?>
                                         <?php if ($donor['city']): ?>
                                             <div class="small text-muted mb-1">
                                                 <i class="fas fa-map-marker-alt me-1"></i><?php echo htmlspecialchars($donor['city']); ?>

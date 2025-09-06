@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once 'config/database.php';
+require_once 'config/system-settings.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -179,6 +181,16 @@ session_start();
         </div>
     </nav>
 
+    <!-- Session Timeout Alert -->
+    <?php if (isset($_GET['timeout']) && $_GET['timeout'] == '1'): ?>
+        <div class="alert alert-warning alert-dismissible fade show position-fixed" style="top: 76px; left: 50%; transform: translateX(-50%); z-index: 1050; min-width: 300px; max-width: 500px;">
+            <i class="fas fa-clock me-2"></i>
+            <strong>Session Expired:</strong> 
+            <?php echo isset($_GET['message']) ? htmlspecialchars($_GET['message']) : 'Your session has expired due to inactivity. Please log in again.'; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
     <!-- Hero Section -->
     <section id="home" class="hero-section">
         <div class="container">
@@ -197,9 +209,15 @@ session_start();
                             Connect with those in need and become a hero in someone's story.
                         </p>
                         <div class="hero-actions d-flex flex-column flex-md-row gap-3 justify-content-center align-items-center">
+                            <?php if (SystemSettings::areRegistrationsAllowed()): ?>
                             <a href="donor/register.php" class="btn btn-danger btn-lg px-5 py-3">
                                 <i class="fas fa-heart me-2"></i>Become A Donor
                             </a>
+                            <?php else: ?>
+                            <button class="btn btn-secondary btn-lg px-5 py-3" disabled title="New registrations are currently disabled">
+                                <i class="fas fa-heart me-2"></i>Registration Disabled
+                            </button>
+                            <?php endif; ?>
                             <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-5 py-3">
                                 <i class="fas fa-plus-circle me-2"></i>Request For Blood
                             </a>

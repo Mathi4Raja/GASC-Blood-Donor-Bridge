@@ -2,6 +2,9 @@
 // Database configuration for GASC Blood Donor Bridge
 // Compatible with PHP 7.2 and MySQL 5.7+
 
+// Set timezone to IST for consistent timestamps across the entire system
+date_default_timezone_set('Asia/Kolkata');
+
 // Load environment configuration
 require_once __DIR__ . '/env.php';
 
@@ -188,21 +191,83 @@ function verifyCSRFToken($token) {
 // Session management
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
+        // Get session timeout from system settings (default 30 minutes if not available)
+        $sessionTimeoutMinutes = 30;
+        if (class_exists('SystemSettings')) {
+            try {
+                $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
+            } catch (Exception $e) {
+                // Fallback to default if settings not available
+                $sessionTimeoutMinutes = 30;
+            }
+        }
+        $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
+        
         // Secure session configuration
         ini_set('session.cookie_httponly', 1);
-        ini_set('session.cookie_secure', 0); // Set to 1 for HTTPS
+        
+        // Auto-detect HTTPS for cookie_secure setting
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+                   || $_SERVER['SERVER_PORT'] == 443
+                   || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        ini_set('session.cookie_secure', $isHttps ? 1 : 0);
+        
         ini_set('session.use_strict_mode', 1);
         ini_set('session.cookie_samesite', 'Strict');
+        ini_set('session.gc_maxlifetime', $sessionTimeoutSeconds);
         
         session_start();
+        
+        // Check for session timeout
+        if (isset($_SESSION['last_activity'])) {
+            if (time() - $_SESSION['last_activity'] > $sessionTimeoutSeconds) {
+                // Session expired
+                session_unset();
+                session_destroy();
+                session_start();
+                $_SESSION['session_expired'] = true;
+            }
+        }
+        $_SESSION['last_activity'] = time();
         
         // Regenerate session ID periodically
         if (!isset($_SESSION['created'])) {
             $_SESSION['created'] = time();
-        } else if (time() - $_SESSION['created'] > 1800) { // 30 minutes
-            session_regenerate_id(true);
-            $_SESSION['created'] = time();
+        } else {
+            if (time() - $_SESSION['created'] > $sessionTimeoutSeconds) {
+                session_regenerate_id(true);
+                $_SESSION['created'] = time();
+            }
         }
+    }
+}
+
+if (!function_exists('checkSessionTimeout')) {
+    function checkSessionTimeout() {
+        // Check if session has been marked as expired
+        if (isset($_SESSION['session_expired'])) {
+            unset($_SESSION['session_expired']);
+            return 'Your session has expired. Please log in again.';
+        }
+        
+        // Check timeout based on last activity
+        if (isset($_SESSION['last_activity'])) {
+            $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
+            $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
+            $timeSinceActivity = time() - $_SESSION['last_activity'];
+            
+            if ($timeSinceActivity > $sessionTimeoutSeconds) {
+                // Session has timed out
+                $_SESSION['session_expired'] = true;
+                destroySession();
+                return 'Your session has expired due to inactivity. Please log in again.';
+            }
+            
+            // Update last activity on each check
+            $_SESSION['last_activity'] = time();
+        }
+        
+        return false;
     }
 }
 
@@ -225,6 +290,16 @@ function isLoggedIn() {
 }
 
 function requireLogin() {
+    // Check for session timeout first
+    $timeoutMessage = checkSessionTimeout();
+    if ($timeoutMessage) {
+        // Session has expired - redirect to login with message
+        $loginUrl = '../index.php?timeout=1&message=' . urlencode($timeoutMessage);
+        header('Location: ' . $loginUrl);
+        exit;
+    }
+    
+    // Check if user is still logged in
     if (!isLoggedIn()) {
         header('Location: ../index.php');
         exit;
@@ -264,8 +339,8 @@ function logActivity($userId, $action, $details = '') {
 
 // Rate limiting for security
 function checkRateLimit($action, $limit = 5, $timeWindow = 300) {
-    $key = $action . '_' . $_SERVER['REMOTE_ADDR'];
-    $logsDir = '../logs';
+    $key = $action . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    $logsDir = __DIR__ . '/../logs';
     $file = $logsDir . '/rate_limit_' . md5($key) . '.tmp';
     
     // Create logs directory if it doesn't exist
@@ -520,4 +595,195 @@ startSecureSession();
 
 // Include system settings helper
 require_once __DIR__ . '/system-settings.php';
+
+/**
+ * Check if automatic database backup is due (every 3 years)
+ */
+function isAutomaticBackupDue() {
+    try {
+        if (!SystemSettings::get('auto_backup_enabled')) {
+            return false;
+        }
+        
+        $lastBackup = SystemSettings::get('last_automatic_backup');
+        $intervalYears = (int)SystemSettings::get('auto_backup_interval_years', 3);
+        
+        if (empty($lastBackup)) {
+            return true; // Never backed up before
+        }
+        
+        $lastBackupTime = strtotime($lastBackup);
+        $intervalSeconds = $intervalYears * 365.25 * 24 * 60 * 60; // Account for leap years
+        
+        return (time() - $lastBackupTime) >= $intervalSeconds;
+    } catch (Exception $e) {
+        error_log("Error checking automatic backup due: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Perform automatic database backup
+ */
+function performAutomaticDatabaseBackup() {
+    try {
+        if (!isAutomaticBackupDue()) {
+            return ['success' => false, 'message' => 'Automatic backup not due yet'];
+        }
+        
+        $result = createDatabaseBackup('automatic');
+        
+        if ($result['success']) {
+            // Update the last automatic backup timestamp
+            SystemSettings::set('last_automatic_backup', date('Y-m-d H:i:s'));
+            
+            logActivity(null, 'automatic_backup_database', 'Automatic database backup created: ' . $result['filename']);
+            
+            return [
+                'success' => true, 
+                'message' => 'Automatic backup created successfully: ' . $result['filename'],
+                'filename' => $result['filename']
+            ];
+        } else {
+            logActivity(null, 'automatic_backup_failed', 'Automatic database backup failed: ' . $result['message']);
+            return $result;
+        }
+    } catch (Exception $e) {
+        $errorMsg = "Automatic backup error: " . $e->getMessage();
+        error_log($errorMsg);
+        logActivity(null, 'automatic_backup_error', $errorMsg);
+        return ['success' => false, 'message' => $errorMsg];
+    }
+}
+
+/**
+ * Create database backup (used by both manual and automatic systems)
+ */
+function createDatabaseBackup($type = 'manual', $dateRange = null) {
+    try {
+        // Get database connection details from environment
+        require_once __DIR__ . '/env.php';
+        $host = EnvLoader::get('DB_HOST', 'localhost');
+        $database = EnvLoader::get('DB_NAME', 'gasc_blood_bridge');
+        $username = EnvLoader::get('DB_USERNAME', 'root');
+        $password = EnvLoader::get('DB_PASSWORD', '');
+        
+        // Find mysqldump
+        $possible_paths = [
+            'C:\\Program Files\\XAMPP\\mysql\\bin\\mysqldump.exe',
+            'C:\\xampp\\mysql\\bin\\mysqldump.exe',
+            'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
+            'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysqldump.exe',
+            'C:\\wamp64\\bin\\mysql\\mysql8.0.21\\bin\\mysqldump.exe'
+        ];
+        
+        $mysqldump_path = null;
+        foreach ($possible_paths as $path) {
+            if (file_exists($path)) {
+                $mysqldump_path = $path;
+                break;
+            }
+        }
+        
+        if (!$mysqldump_path) {
+            throw new Exception("mysqldump not found in standard locations");
+        }
+        
+        // Create backup directory if it doesn't exist
+        $backupDir = __DIR__ . '/../database';
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+        
+        // Build the backup file path with date range info if provided
+        $backup_filename = 'backup_' . $type . '_' . date('Y-m-d_H-i-s');
+        if ($dateRange) {
+            $backup_filename .= '_from-' . $dateRange['start'] . '_to-' . $dateRange['end'];
+        }
+        $backup_filename .= '.sql';
+        $backup_file_full = $backupDir . DIRECTORY_SEPARATOR . $backup_filename;
+        
+        // Build command (full backup - date range is for metadata only)
+        if (empty($password)) {
+            $command = "\"$mysqldump_path\" --user=\"$username\" --host=\"$host\" --single-transaction --routines --triggers \"$database\"";
+        } else {
+            $command = "\"$mysqldump_path\" --user=\"$username\" --password=\"$password\" --host=\"$host\" --single-transaction --routines --triggers \"$database\"";
+        }
+        
+        // Execute command
+        $handle = popen($command, 'r');
+        if (!$handle) {
+            throw new Exception('Failed to execute mysqldump command');
+        }
+        
+        $backup_content = '';
+        while (!feof($handle)) {
+            $chunk = fread($handle, 8192);
+            if ($chunk === false) break;
+            $backup_content .= $chunk;
+        }
+        $return_code = pclose($handle);
+        
+        // Validate backup content
+        if ($return_code === 0 && !empty($backup_content) && strlen($backup_content) > 1000 && strpos($backup_content, 'CREATE TABLE') !== false) {
+            // Add date range metadata to backup content if provided
+            if ($dateRange) {
+                $metadata = "\n-- BACKUP METADATA\n";
+                $metadata .= "-- Backup Type: Manual with Date Range\n";
+                $metadata .= "-- Date Range: {$dateRange['start']} to {$dateRange['end']}\n";
+                $metadata .= "-- Period: {$dateRange['start_formatted']} to {$dateRange['end_formatted']}\n";
+                $metadata .= "-- Duration: {$dateRange['duration_years']} years, {$dateRange['duration_months']} months, {$dateRange['duration_days']} days\n";
+                $metadata .= "-- Created: " . date('Y-m-d H:i:s') . "\n";
+                $metadata .= "-- Note: This is a full database backup with specified date range for reference\n\n";
+                
+                // Insert metadata after the first comment block
+                $backup_content = preg_replace('/^(-- .+?\n\n)/s', '$1' . $metadata, $backup_content, 1);
+            }
+            
+            if (file_put_contents($backup_file_full, $backup_content) !== false) {
+                $file_size_mb = round(strlen($backup_content) / 1024 / 1024, 2);
+                $result = [
+                    'success' => true,
+                    'filename' => $backup_filename,
+                    'size_mb' => $file_size_mb,
+                    'type' => $type
+                ];
+                
+                // Add date range info to result
+                if ($dateRange) {
+                    $result['date_range'] = $dateRange;
+                }
+                
+                return $result;
+            } else {
+                throw new Exception('Failed to write backup file');
+            }
+        } else {
+            throw new Exception("Invalid backup content or mysqldump error (return code: $return_code)");
+        }
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+/**
+ * Get next automatic backup due date
+ */
+function getNextAutomaticBackupDate() {
+    try {
+        $lastBackup = SystemSettings::get('last_automatic_backup');
+        $intervalYears = (int)SystemSettings::get('auto_backup_interval_years', 3);
+        
+        if (empty($lastBackup)) {
+            return 'Due now (never backed up)';
+        }
+        
+        $lastBackupTime = strtotime($lastBackup);
+        $nextBackupTime = $lastBackupTime + ($intervalYears * 365.25 * 24 * 60 * 60);
+        
+        return date('Y-m-d H:i:s', $nextBackupTime);
+    } catch (Exception $e) {
+        return 'Error calculating date: ' . $e->getMessage();
+    }
+}
 ?>

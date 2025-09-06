@@ -5,6 +5,7 @@ require_once '../config/session.php';
 // Now safely connect to database and other configs
 require_once '../config/database.php';
 require_once '../config/email.php';
+require_once '../config/notifications.php';
 
 // Check if user is logged in as admin or moderator
 requireRole(['admin', 'moderator']);
@@ -33,50 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = "Request status updated to {$newStatus}.";
                 logActivity($_SESSION['user_id'], 'blood_request_status_updated', "Request ID {$requestId} status changed to {$newStatus}");
                 
-                // Send email notification to requester
-                $requestQuery = $db->prepare("SELECT * FROM blood_requests WHERE id = ?");
-                $requestQuery->bind_param('i', $requestId);
-                $requestQuery->execute();
-                $request = $requestQuery->get_result()->fetch_assoc();
-                
-                if ($request) {
-                    $emailSubject = "Blood Request Status Update - GASC Blood Bridge";
-                    $statusMessage = '';
-                    
-                    switch ($newStatus) {
-                        case 'Fulfilled':
-                            $statusMessage = "Great news! Your blood request has been fulfilled. Thank you for using our service.";
-                            break;
-                        case 'Cancelled':
-                            $statusMessage = "Your blood request has been cancelled. If you have any questions, please contact us.";
-                            break;
-                        case 'Expired':
-                            $statusMessage = "Your blood request has expired. You can submit a new request if still needed.";
-                            break;
-                    }
-                    
-                    if ($statusMessage) {
-                        $emailBody = "
-                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                            <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
-                                <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
-                            </div>
-                            <div style='padding: 30px; background: #f8f9fa;'>
-                                <h2>Request Status Update</h2>
-                                <p>Dear {$request['requester_name']},</p>
-                                <p>{$statusMessage}</p>
-                                <div style='background: white; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;'>
-                                    <p><strong>Request ID:</strong> #{$request['id']}</p>
-                                    <p><strong>Blood Group:</strong> {$request['blood_group']}</p>
-                                    <p><strong>Status:</strong> {$newStatus}</p>
-                                </div>
-                                <p>Thank you for using GASC Blood Bridge.</p>
-                            </div>
-                        </div>
-                        ";
-                        sendEmail($request['requester_email'], $emailSubject, $emailBody);
-                    }
-                }
+                // Send notification using the proper notification function that respects email settings
+                notifyRequestorStatusUpdate($requestId, $newStatus);
             } else {
                 $error = "Failed to update request status.";
             }

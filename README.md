@@ -27,6 +27,8 @@ A comprehensive blood donation portal developed for college students to connect 
 - **Activity Logging**: Complete audit trail of all activities
 - **Role-based Access**: Different access levels for admins and moderators
 - **Password Reset Management**: Secure password reset for all user types
+- **System Settings**: Configurable system parameters with real-time updates
+- **Email Notification Control**: Enable/disable email notifications with fallback logging
 
 ## 🛠️ Technology Stack
 
@@ -34,7 +36,7 @@ A comprehensive blood donation portal developed for college students to connect 
 - **Backend**: PHP 7.2+
 - **Database**: MySQL 5.7+
 - **Security**: CSRF protection, bcrypt password hashing, secure session management
-- **Email**: PHPMailer integration with comprehensive email system
+- **Email**: PHPMailer integration with comprehensive notification system and fallback logging
 - **Architecture**: MVC-inspired structure with separation of concerns
 
 ## 📱 Design Features
@@ -122,7 +124,6 @@ A comprehensive blood donation portal developed for college students to connect 
 ```
 GASC-Blood-Donor-Bridge/
 ├── index.php                     # Landing page
-├── scheduled-tasks.php            # Automated system maintenance
 ├── logout.php                     # Universal logout handler
 ├── composer.json                  # Dependencies and autoloader
 ├── .gitignore                     # Git ignore rules
@@ -130,7 +131,6 @@ GASC-Blood-Donor-Bridge/
 │   ├── database.php              # Database config & security functions
 │   ├── email.php                 # Email sending functionality
 │   ├── notifications.php         # Email notification system
-│   ├── otp.php                   # OTP generation utilities
 │   └── forgot-password.php       # Legacy redirect handler
 ├── database/
 │   └── schema-phpmyadmin.sql     # Complete database schema
@@ -225,20 +225,6 @@ Comprehensive email system with PHPMailer integration:
 - Production: SMTP integration ready (configure in `config/email.php`)
 - Template-based emails with branding
 - Comprehensive error handling and logging
-
-## 🔧 Scheduled Tasks
-
-Automated maintenance system (`scheduled-tasks.php`):
-
-- **Auto-expire Blood Requests**: Removes old requests based on urgency
-- **Donation Eligibility Updates**: Updates donor availability based on last donation
-- **Data Cleanup**: Removes expired tokens and old logs
-- **Daily Statistics**: Generates daily system reports
-- **Reminder System**: Sends donation eligibility reminders
-
-### Setup Instructions:
-- **Windows**: Use Task Scheduler to run hourly
-- **Linux**: Add to crontab: `0 * * * * php /path/to/scheduled-tasks.php`
 
 ## 🔧 Configuration
 

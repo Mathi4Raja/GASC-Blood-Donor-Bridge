@@ -7,6 +7,18 @@
 // Load environment configuration
 require_once __DIR__ . '/env.php';
 require_once __DIR__ . '/site.php';
+require_once __DIR__ . '/system-settings.php';
+
+/**
+ * Safely write to log file, creating directory if needed
+ */
+function safeLogToFile($filePath, $content, $flags = FILE_APPEND | LOCK_EX) {
+    $directory = dirname($filePath);
+    if (!is_dir($directory)) {
+        mkdir($directory, 0755, true);
+    }
+    return file_put_contents($filePath, $content, $flags);
+}
 
 // Include PHPMailer classes manually if available
 $phpmailer_path = __DIR__ . '/../vendor/phpmailer/phpmailer/src/';
@@ -100,16 +112,7 @@ function sendEmailWithPHPMailer($to, $subject, $body, $isHTML = true) {
  * Fallback email logging for development
  */
 function logEmailForDevelopment($to, $subject, $body) {
-    $logsDir = '../logs';
-    $logFile = $logsDir . '/emails.log';
-    
-    // Create logs directory if it doesn't exist
-    if (!is_dir($logsDir)) {
-        if (!mkdir($logsDir, 0755, true)) {
-            error_log("Failed to create logs directory: $logsDir");
-            return false;
-        }
-    }
+    $logFile = __DIR__ . '/../logs/emails.log';
     
     $timestamp = date('Y-m-d H:i:s');
     $logMessage = "\n" . str_repeat("=", 80) . "\n";
@@ -119,12 +122,7 @@ function logEmailForDevelopment($to, $subject, $body) {
     $logMessage .= "Body:\n$body\n";
     $logMessage .= str_repeat("=", 80) . "\n";
     
-    if (error_log($logMessage, 3, $logFile) === false) {
-        error_log("Failed to write to email log file: $logFile");
-        return false;
-    }
-    
-    return true;
+    return safeLogToFile($logFile, $logMessage);
 }
 
 
@@ -133,6 +131,28 @@ function logEmailForDevelopment($to, $subject, $body) {
  * Send notification email to donors about blood requests
  */
 function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) {
+    // Check if email notifications are enabled
+    if (!SystemSettings::isEmailNotificationsEnabled()) {
+        // Log blood request notification details when email is disabled
+        $logMessage = "NOTIFICATION DISABLED - Blood Request Notification:\n";
+        $logMessage .= "Donor Email: $donorEmail\n";
+        $logMessage .= "Donor Name: $donorName\n";
+        $logMessage .= "Blood Group: {$requestDetails['blood_group']}\n";
+        $logMessage .= "Location: {$requestDetails['city']}\n";
+        $logMessage .= "Units Needed: {$requestDetails['units_needed']}\n";
+        $logMessage .= "Urgency: {$requestDetails['urgency']}\n";
+        $logMessage .= "Contact: {$requestDetails['requester_phone']}\n";
+        $logMessage .= "Request Details: {$requestDetails['details']}\n";
+        $logMessage .= "Notification Time: " . date('Y-m-d H:i:s') . "\n";
+        $logMessage .= "----------------------------------------\n";
+        
+        // Write to email log file (ensure directory exists)
+        safeLogToFile(__DIR__ . '/../logs/emails.log', $logMessage);
+        
+        logActivity(null, 'blood_request_notification_logged', "Email notifications disabled - logged blood request notification for: $donorEmail");
+        return ['status' => 'logged', 'email_sent' => false, 'logged' => true];
+    }
+    
     $subject = "Urgent Blood Request - Your Help Needed!";
     
     $urgencyColor = match($requestDetails['urgency']) {
@@ -201,6 +221,35 @@ function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) 
  * Send password reset email with role-specific links
  */
 function sendPasswordResetEmail($email, $resetToken, $userName, $userType = 'donor') {
+    // Admin and moderator password resets should ALWAYS be sent, regardless of email notification settings
+    $isAdminReset = ($userType === 'admin' || $userType === 'moderator');
+    
+    // Check if email notifications are enabled (skip this check for admin/moderator resets)
+    if (!$isAdminReset && !SystemSettings::isEmailNotificationsEnabled()) {
+        // Log password reset request details when email is disabled (for non-admin users only)
+        $logMessage = "NOTIFICATION DISABLED - Password Reset Request:\n";
+        $logMessage .= "Email: $email\n";
+        $logMessage .= "User Name: $userName\n";
+        $logMessage .= "User Type: $userType\n";
+        $logMessage .= "Reset Token: $resetToken\n";
+        $logMessage .= "Request Time: " . date('Y-m-d H:i:s') . "\n";
+        $logMessage .= "Note: Password reset email would have been sent\n";
+        $logMessage .= "Manual Reset: Admin can reset password directly in user management\n";
+        $logMessage .= "----------------------------------------\n";
+        
+        // Write to email log file (ensure directory exists)
+        safeLogToFile(__DIR__ . '/../logs/emails.log', $logMessage);
+        
+        logActivity(null, 'password_reset_logged', "Email notifications disabled - logged password reset request for: $email");
+        return ['status' => 'logged', 'email_sent' => false, 'logged' => true];
+    }
+    
+    // Log admin/moderator password reset email (even when general notifications are disabled)
+    if ($isAdminReset) {
+        $notificationStatus = SystemSettings::isEmailNotificationsEnabled() ? 'enabled' : 'disabled';
+        logActivity(null, 'admin_password_reset_email', "Admin password reset email being sent (notifications $notificationStatus) for $userType: $email");
+    }
+    
     // Generate reset link - handle different server configurations
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -265,6 +314,24 @@ function sendPasswordResetEmail($email, $resetToken, $userName, $userType = 'don
  * Simple wrapper for sending emails
  */
 function sendEmail($to, $subject, $body, $isHTML = false) {
+    // Check if email notifications are enabled
+    if (!SystemSettings::isEmailNotificationsEnabled()) {
+        // Log generic email details when email is disabled
+        $logMessage = "NOTIFICATION DISABLED - Generic Email:\n";
+        $logMessage .= "To: $to\n";
+        $logMessage .= "Subject: $subject\n";
+        $logMessage .= "Is HTML: " . ($isHTML ? 'Yes' : 'No') . "\n";
+        $logMessage .= "Body Preview: " . substr(strip_tags($body), 0, 200) . "...\n";
+        $logMessage .= "Email Time: " . date('Y-m-d H:i:s') . "\n";
+        $logMessage .= "----------------------------------------\n";
+        
+        // Write to email log file (ensure directory exists)
+        safeLogToFile(__DIR__ . '/../logs/emails.log', $logMessage);
+        
+        logActivity(null, 'generic_email_logged', "Email notifications disabled - logged generic email to: $to");
+        return ['status' => 'logged', 'email_sent' => false, 'logged' => true];
+    }
+    
     return sendEmailSMTP($to, $subject, $body, $isHTML);
 }
 ?>

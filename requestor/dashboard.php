@@ -2,6 +2,14 @@
 // Initialize secure session BEFORE database connection
 require_once '../config/session.php';
 
+// Check for session timeout first
+$timeoutMessage = checkSessionTimeout();
+if ($timeoutMessage) {
+    // Session has expired - redirect to login with message
+    header('Location: login.php?timeout=1&message=' . urlencode($timeoutMessage));
+    exit;
+}
+
 // Simple session-based authentication for requestors
 if (!isset($_SESSION['requestor_email'])) {
     header('Location: login.php');

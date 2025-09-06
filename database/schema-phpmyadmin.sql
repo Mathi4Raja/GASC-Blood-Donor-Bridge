@@ -61,21 +61,6 @@ CREATE TABLE blood_requests (
     INDEX idx_expires_at (expires_at)
 );
 
--- OTP verifications table (used for email verification and password reset only)
-CREATE TABLE otp_verifications (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    email VARCHAR(100) NOT NULL,
-    otp VARCHAR(10) NOT NULL,
-    purpose ENUM('registration', 'password_reset') NOT NULL,
-    is_used BOOLEAN DEFAULT FALSE,
-    expires_at DATETIME NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_email (email),
-    INDEX idx_otp (otp),
-    INDEX idx_expires_at (expires_at)
-);
-
 -- Donor availability history table
 CREATE TABLE donor_availability_history (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -148,15 +133,11 @@ INSERT INTO users (name, email, phone, password_hash, user_type, is_verified, is
 INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('site_name', 'GASC Blood Donor Bridge', 'Website name'),
 ('admin_email', 'admin@gasc.edu', 'Administrator email address'),
-('request_expiry_days', '30', 'Default expiry days for blood requests'),
-('max_requests_per_user', '5', 'Maximum requests per user'),
-('donation_cooldown_days', '56', 'General donation cooldown in days'),
-('male_donation_gap_months', '3', 'Minimum months between donations for males'),
-('female_donation_gap_months', '4', 'Minimum months between donations for females'),
-('otp_expiry_minutes', '10', 'OTP expiry time in minutes'),
+('max_requests_per_user', '5', 'Maximum requests per user per day'),
 ('max_login_attempts', '5', 'Maximum login attempts before lockout'),
 ('session_timeout_minutes', '30', 'Session timeout in minutes'),
 ('email_notifications', '1', 'Enable email notifications'),
+('sms_notifications', '0', 'Enable SMS notifications (In Development)'),
 ('auto_expire_requests', '1', 'Auto-expire old requests'),
 ('require_email_verification', '1', 'Require email verification for new accounts'),
 ('allow_registrations', '1', 'Allow new user registrations');

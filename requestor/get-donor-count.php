@@ -4,6 +4,14 @@ require_once '../config/session.php';
 
 header('Content-Type: application/json');
 
+// Check for session timeout first
+$timeoutMessage = checkSessionTimeout();
+if ($timeoutMessage) {
+    // Session has expired
+    echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.', 'timeout' => true]);
+    exit;
+}
+
 // Check if requestor is authenticated
 if (!isset($_SESSION['requestor_email'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);

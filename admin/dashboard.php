@@ -8,6 +8,24 @@ require_once '../config/database.php';
 // Check if user is logged in as admin or moderator
 requireRole(['admin', 'moderator']);
 
+// Check for automatic backup (only for admins, not moderators)
+if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
+    try {
+        if (isAutomaticBackupDue()) {
+            $autoBackupResult = performAutomaticDatabaseBackup();
+            if ($autoBackupResult['success']) {
+                $autoBackupMessage = "Automatic backup completed: " . $autoBackupResult['filename'];
+                $autoBackupType = 'success';
+            } else {
+                $autoBackupMessage = "Automatic backup failed: " . $autoBackupResult['message'];
+                $autoBackupType = 'warning';
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Dashboard automatic backup check error: " . $e->getMessage());
+    }
+}
+
 try {
     $db = new Database();
     
@@ -411,6 +429,14 @@ try {
                     <?php if (isset($error)): ?>
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-triangle me-2"></i><?php echo $error; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <!-- Automatic Backup Notification -->
+                    <?php if (isset($autoBackupMessage)): ?>
+                        <div class="alert alert-<?php echo $autoBackupType; ?> alert-dismissible fade show">
+                            <i class="fas fa-database me-2"></i><?php echo $autoBackupMessage; ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     <?php endif; ?>
                     

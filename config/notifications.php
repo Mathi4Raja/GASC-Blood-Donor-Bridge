@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/email.php';
+require_once __DIR__ . '/system-settings.php';
 
 /**
  * Notify eligible donors about a new blood request
@@ -32,20 +33,39 @@ function notifyDonorsForBloodRequest($requestId) {
                      AND blood_group = ? 
                      AND is_available = TRUE 
                      AND is_verified = TRUE 
-                     AND is_active = TRUE
+                     AND is_active = TRUE 
+                     AND city = ?
                      ORDER BY 
                         CASE WHEN city = ? THEN 1 ELSE 2 END,
                         ISNULL(last_donation_date), last_donation_date ASC
                      LIMIT 50"; // Limit to 50 donors to avoid spam
         
-        $donorResult = $db->query($donorSQL, [$request['blood_group'], $request['city']]);
+        $donorResult = $db->query($donorSQL, [$request['blood_group'], $request['city'], $request['city']]);
         
         if ($donorResult->num_rows === 0) {
             logActivity(null, 'notification_info', "No eligible donors found for request: $requestId");
-            return true; // Not an error, just no donors available
+            return ['success' => true, 'donors_notified' => 0, 'emails_sent' => 0];
         }
         
         $donors = $donorResult->fetch_all(MYSQLI_ASSOC);
+        $donorsCount = count($donors);
+        
+        // Check if email notifications are enabled
+        if (!SystemSettings::isEmailNotificationsEnabled()) {
+            // Log the notification details instead of sending emails
+            $logDetails = "Email notifications disabled - Would have notified $donorsCount donors for request: $requestId | " .
+                         "Blood Group: {$request['blood_group']} | City: {$request['city']} | Urgency: {$request['urgency']}";
+            logActivity(null, 'notification_logged_fallback', $logDetails);
+            
+            // Log to email log file as fallback
+            $emailLogEntry = date('Y-m-d H:i:s') . " [NOTIFICATION DISABLED] Request ID: $requestId | " .
+                           "Blood Group: {$request['blood_group']} | City: {$request['city']} | " .
+                           "Eligible Donors: $donorsCount | Urgency: {$request['urgency']}" . PHP_EOL;
+            safeLogToFile(__DIR__ . '/../logs/emails.log', $emailLogEntry);
+            
+            return ['success' => true, 'donors_notified' => $donorsCount, 'emails_sent' => 0, 'logged_instead' => true];
+        }
+        
         $emailsSent = 0;
         
         // Send notifications to eligible donors
@@ -60,9 +80,8 @@ function notifyDonorsForBloodRequest($requestId) {
         }
         
         // Log notification results
-        $totalDonors = count($donors);
         logActivity(null, 'blood_request_notifications_sent', 
-            "Request #$requestId: Notified $totalDonors donors - $emailsSent emails");
+            "Request #$requestId: Notified $donorsCount donors - $emailsSent emails");
         
         // Update request with notification info
         $updateSQL = "UPDATE blood_requests 
@@ -72,7 +91,7 @@ function notifyDonorsForBloodRequest($requestId) {
         
         return [
             'success' => true,
-            'donors_notified' => $totalDonors,
+            'donors_notified' => $donorsCount,
             'emails_sent' => $emailsSent
         ];
         
@@ -86,6 +105,45 @@ function notifyDonorsForBloodRequest($requestId) {
  * Send notification to requestor about request status update
  */
 function notifyRequestorStatusUpdate($requestId, $newStatus) {
+    // Check if email notifications are enabled
+    if (!SystemSettings::isEmailNotificationsEnabled()) {
+        try {
+            $db = new Database();
+            
+            // Get request details for logging
+            $sql = "SELECT * FROM blood_requests WHERE id = ?";
+            $result = $db->query($sql, [$requestId]);
+            
+            if ($result->num_rows === 0) {
+                logActivity(null, 'notification_error', "Request not found for status update notification: $requestId");
+                return false;
+            }
+            
+            $request = $result->fetch_assoc();
+            
+            // Log notification details when email is disabled
+            $logMessage = "NOTIFICATION DISABLED - Status Update Request:\n";
+            $logMessage .= "Request ID: $requestId\n";
+            $logMessage .= "Requestor: {$request['requester_name']} ({$request['requester_email']})\n";
+            $logMessage .= "Blood Group: {$request['blood_group']}\n";
+            $logMessage .= "Units Needed: {$request['units_needed']}\n";
+            $logMessage .= "New Status: $newStatus\n";
+            $logMessage .= "Location: {$request['city']}\n";
+            $logMessage .= "Original Request Date: {$request['created_at']}\n";
+            $logMessage .= "Status Update Time: " . date('Y-m-d H:i:s') . "\n";
+            $logMessage .= "----------------------------------------\n";
+            
+            // Write to email log file
+            safeLogToFile(__DIR__ . '/../logs/emails.log', $logMessage);
+            
+            logActivity(null, 'notification_logged', "Email notifications disabled - logged status update for request: $requestId");
+            return ['status' => 'logged', 'emails_sent' => 0, 'logged' => true];
+            
+        } catch (Exception $e) {
+            logActivity(null, 'notification_error', "Error logging status update notification for request $requestId: " . $e->getMessage());
+            return false;
+        }
+    }
     try {
         $db = new Database();
         
@@ -175,6 +233,44 @@ function notifyRequestorStatusUpdate($requestId, $newStatus) {
  * Send reminder to donors who can donate again
  */
 function sendDonationEligibilityReminders() {
+    // Check if email notifications are enabled
+    if (!SystemSettings::isEmailNotificationsEnabled()) {
+        try {
+            $db = new Database();
+            
+            // Count eligible donors for logging
+            $sql = "SELECT COUNT(*) as count 
+                    FROM users 
+                    WHERE user_type = 'donor' 
+                    AND is_active = TRUE 
+                    AND is_verified = TRUE 
+                    AND last_donation_date IS NOT NULL
+                    AND (
+                        (gender = 'Male' AND last_donation_date = DATE_SUB(CURDATE(), INTERVAL 3 MONTH)) OR
+                        (gender = 'Female' AND last_donation_date = DATE_SUB(CURDATE(), INTERVAL 4 MONTH))
+                    )";
+            $result = $db->query($sql);
+            $eligibleCount = $result->fetch_assoc()['count'];
+            
+            // Log notification details when email is disabled
+            $logMessage = "NOTIFICATION DISABLED - Donation Eligibility Reminders:\n";
+            $logMessage .= "Eligible Donors Count: $eligibleCount\n";
+            $logMessage .= "Reminder Type: Donation Eligibility (3/4 months after last donation)\n";
+            $logMessage .= "Reminder Time: " . date('Y-m-d H:i:s') . "\n";
+            $logMessage .= "Note: These donors are now eligible to donate again\n";
+            $logMessage .= "----------------------------------------\n";
+            
+            // Write to email log file
+            safeLogToFile(__DIR__ . '/../logs/emails.log', $logMessage);
+            
+            logActivity(null, 'eligibility_reminders_logged', "Email notifications disabled - logged $eligibleCount eligibility reminders");
+            return ['status' => 'logged', 'reminders_sent' => 0, 'logged' => $eligibleCount];
+            
+        } catch (Exception $e) {
+            logActivity(null, 'eligibility_reminder_error', "Error logging eligibility reminders: " . $e->getMessage());
+            return 0;
+        }
+    }
     try {
         $db = new Database();
         
@@ -253,6 +349,11 @@ function sendDonationEligibilityReminders() {
  * Auto-expire old blood requests
  */
 function autoExpireBloodRequests() {
+    // Check if auto-expire is enabled
+    if (!SystemSettings::isAutoExpireRequestsEnabled()) {
+        logActivity(null, 'auto_expire_skipped', "Auto-expire requests disabled - skipping");
+        return 0;
+    }
     try {
         $db = new Database();
         
@@ -302,7 +403,6 @@ function cleanupOldData() {
         logActivity(null, 'cleanup_completed', "Cleaned $logsCleaned old activity logs");
         
         return [
-            'otps_cleaned' => $otpsCleaned,
             'logs_cleaned' => $logsCleaned
         ];
         

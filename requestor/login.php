@@ -77,6 +77,16 @@ session_start();
                     <p class="text-muted mb-0">Access your blood request dashboard</p>
                 </div>
                 
+                <!-- Session Timeout Alert -->
+                <?php if (isset($_GET['timeout']) && $_GET['timeout'] == '1'): ?>
+                    <div class="alert alert-warning alert-dismissible fade show m-3">
+                        <i class="fas fa-clock me-2"></i>
+                        <strong>Session Expired:</strong> 
+                        <?php echo isset($_GET['message']) ? htmlspecialchars($_GET['message']) : 'Your session has expired due to inactivity. Please log in again.'; ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+                
                 <div class="p-4">
                     <?php if (isset($_GET['error'])): ?>
                         <div class="alert alert-danger">

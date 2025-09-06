@@ -84,6 +84,8 @@ class SystemSettings {
         }
     }
     
+    // ========== BASIC SETTINGS ==========
+    
     /**
      * Get site name
      */
@@ -98,47 +100,16 @@ class SystemSettings {
         return self::get('admin_email', 'admin@gasc.edu');
     }
     
-    /**
-     * Get request expiry days
-     */
-    public static function getRequestExpiryDays() {
-        return self::get('request_expiry_days', 30);
-    }
+    // ========== REQUEST LIMITS ==========
     
     /**
-     * Get max requests per user
+     * Get maximum requests per user per day
      */
     public static function getMaxRequestsPerUser() {
         return self::get('max_requests_per_user', 5);
     }
     
-    /**
-     * Get donation cooldown days
-     */
-    public static function getDonationCooldownDays() {
-        return self::get('donation_cooldown_days', 56);
-    }
-    
-    /**
-     * Get male donation gap in months
-     */
-    public static function getMaleDonationGapMonths() {
-        return self::get('male_donation_gap_months', 3);
-    }
-    
-    /**
-     * Get female donation gap in months
-     */
-    public static function getFemaleDonationGapMonths() {
-        return self::get('female_donation_gap_months', 4);
-    }
-    
-    /**
-     * Get OTP expiry minutes
-     */
-    public static function getOtpExpiryMinutes() {
-        return self::get('otp_expiry_minutes', 10);
-    }
+    // ========== SECURITY & SESSIONS ==========
     
     /**
      * Get max login attempts
@@ -148,90 +119,49 @@ class SystemSettings {
     }
     
     /**
-     * Get session timeout minutes
+     * Get session timeout in minutes
      */
     public static function getSessionTimeoutMinutes() {
         return self::get('session_timeout_minutes', 30);
     }
     
+    // ========== NOTIFICATIONS ==========
+    
     /**
      * Check if email notifications are enabled
      */
     public static function isEmailNotificationsEnabled() {
-        return self::get('email_notifications', true);
+        return (bool) self::get('email_notifications', 1);
     }
+    
+    /**
+     * Check if SMS notifications are enabled
+     */
+    public static function isSmsNotificationsEnabled() {
+        return (bool) self::get('sms_notifications', 0);
+    }
+    
+    // ========== SYSTEM CONTROLS ==========
     
     /**
      * Check if auto-expire requests is enabled
      */
     public static function isAutoExpireRequestsEnabled() {
-        return self::get('auto_expire_requests', true);
+        return (bool) self::get('auto_expire_requests', 1);
     }
     
     /**
      * Check if email verification is required
      */
     public static function isEmailVerificationRequired() {
-        return self::get('require_email_verification', true);
+        return (bool) self::get('require_email_verification', 1);
     }
     
     /**
-     * Check if registrations are allowed
+     * Check if new registrations are allowed
      */
     public static function areRegistrationsAllowed() {
-        return self::get('allow_registrations', true);
-    }
-    
-    /**
-     * Get donation gap based on gender
-     * @param string $gender 'Male', 'Female', or 'Other'
-     * @return int Gap in months
-     */
-    public static function getDonationGapByGender($gender) {
-        switch (strtolower($gender)) {
-            case 'male':
-                return self::getMaleDonationGapMonths();
-            case 'female':
-                return self::getFemaleDonationGapMonths();
-            default:
-                return self::getFemaleDonationGapMonths(); // Use safer female gap as default
-        }
-    }
-    
-    /**
-     * Check if a donor can donate based on last donation date and gender
-     * @param string $lastDonationDate Last donation date (YYYY-MM-DD)
-     * @param string $gender Donor gender
-     * @return array ['can_donate' => bool, 'next_eligible_date' => string, 'days_remaining' => int]
-     */
-    public static function checkDonationEligibility($lastDonationDate, $gender) {
-        if (empty($lastDonationDate)) {
-            return [
-                'can_donate' => true,
-                'next_eligible_date' => null,
-                'days_remaining' => 0
-            ];
-        }
-        
-        $gapMonths = self::getDonationGapByGender($gender);
-        $lastDonation = new DateTime($lastDonationDate);
-        $nextEligibleDate = clone $lastDonation;
-        $nextEligibleDate->add(new DateInterval("P{$gapMonths}M"));
-        
-        $now = new DateTime();
-        $canDonate = $now >= $nextEligibleDate;
-        
-        $daysRemaining = 0;
-        if (!$canDonate) {
-            $diff = $now->diff($nextEligibleDate);
-            $daysRemaining = $diff->days;
-        }
-        
-        return [
-            'can_donate' => $canDonate,
-            'next_eligible_date' => $nextEligibleDate->format('Y-m-d'),
-            'days_remaining' => $daysRemaining
-        ];
+        return (bool) self::get('allow_registrations', 1);
     }
     
     /**

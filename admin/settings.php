@@ -21,17 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'site_name' => $_POST['site_name'] ?? 'GASC Blood Bridge',
                 'admin_email' => $_POST['admin_email'] ?? '',
                 'max_requests_per_user' => (int)($_POST['max_requests_per_user'] ?? 5),
-                'request_expiry_days' => (int)($_POST['request_expiry_days'] ?? 30),
-                'donation_cooldown_days' => (int)($_POST['donation_cooldown_days'] ?? 56),
-                'male_donation_gap_months' => (int)($_POST['male_donation_gap_months'] ?? 3),
-                'female_donation_gap_months' => (int)($_POST['female_donation_gap_months'] ?? 4),
-                'otp_expiry_minutes' => (int)($_POST['otp_expiry_minutes'] ?? 10),
                 'max_login_attempts' => (int)($_POST['max_login_attempts'] ?? 5),
                 'session_timeout_minutes' => (int)($_POST['session_timeout_minutes'] ?? 30),
                 'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
+                'sms_notifications' => isset($_POST['sms_notifications']) ? 1 : 0,
                 'auto_expire_requests' => isset($_POST['auto_expire_requests']) ? 1 : 0,
                 'require_email_verification' => isset($_POST['require_email_verification']) ? 1 : 0,
-                'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0
+                'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0,
+                'auto_backup_enabled' => isset($_POST['auto_backup_enabled']) ? 1 : 0
             ];
             
             foreach ($settings as $key => $value) {
@@ -55,85 +52,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } elseif ($action === 'backup_database') {
         try {
-            // Ensure backup directory exists
-            if (!is_dir('../database')) {
-                mkdir('../database', 0755, true);
-            }
+            $startDate = $_POST['start_date'] ?? null;
+            $endDate = $_POST['end_date'] ?? null;
             
-            // Database credentials from environment variables
-            $host = EnvLoader::get('DB_HOST', 'localhost');
-            $username = EnvLoader::get('DB_USERNAME', 'root');
-            $password = EnvLoader::get('DB_PASSWORD', '');
-            $database = EnvLoader::get('DB_NAME', 'gasc_blood_bridge');
-            
-            // Full path to mysqldump - remove extra quotes from env variable
-            $mysqldump_path = trim(EnvLoader::get('MYSQLDUMP_PATH', 'C:\\Program Files\\XAMPP\\mysql\\bin\\mysqldump.exe'), '"');
-            
-            // Verify mysqldump exists
-            if (!file_exists($mysqldump_path)) {
-                throw new Exception("mysqldump not found at: $mysqldump_path");
-            }
-            
-            // Build the backup file path
-            $backup_filename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
-            $backup_file_full = realpath('../database') . DIRECTORY_SEPARATOR . $backup_filename;
-            
-            // Log the attempt
-            error_log("Starting database backup - File: $backup_filename");
-            
-            // Use popen for direct process execution (most reliable on Windows)
-            if (empty($password)) {
-                $command = "\"$mysqldump_path\" --user=\"$username\" --host=\"$host\" --single-transaction --routines --triggers \"$database\"";
-            } else {
-                $command = "\"$mysqldump_path\" --user=\"$username\" --password=\"$password\" --host=\"$host\" --single-transaction --routines --triggers \"$database\"";
-            }
-            
-            // Execute command and capture output
-            $handle = popen($command, 'r');
-            if (!$handle) {
-                throw new Exception('Failed to execute mysqldump command');
-            }
-            
-            $backup_content = '';
-            while (!feof($handle)) {
-                $chunk = fread($handle, 8192);
-                if ($chunk === false) break;
-                $backup_content .= $chunk;
-            }
-            $return_code = pclose($handle);
-            
-            error_log("Backup command executed - Return code: $return_code, Content length: " . strlen($backup_content));
-            
-            // Check if we got valid backup content
-            if ($return_code === 0 && !empty($backup_content) && strlen($backup_content) > 1000 && strpos($backup_content, 'CREATE TABLE') !== false) {
-                // Write backup to file
-                if (file_put_contents($backup_file_full, $backup_content) !== false) {
-                    $file_size_mb = round(strlen($backup_content) / 1024 / 1024, 2);
-                    logActivity($_SESSION['user_id'], 'backup_database', 'Created database backup: ' . $backup_filename . ' (' . $file_size_mb . ' MB)');
-                    error_log("Backup successful - File: $backup_filename, Size: $file_size_mb MB");
-                    $message = 'Database backup created successfully: ' . $backup_filename . ' (' . $file_size_mb . ' MB)';
-                    $messageType = 'success';
-                } else {
-                    throw new Exception('Failed to write backup file to: ' . $backup_file_full);
-                }
-            } else {
-                $error_sample = substr($backup_content, 0, 500);
-                error_log("Backup failed - Return code: $return_code, Content sample: " . $error_sample);
+            // Validate date range if provided
+            $dateRange = null;
+            if ($startDate && $endDate) {
+                $start = DateTime::createFromFormat('Y-m-d', $startDate);
+                $end = DateTime::createFromFormat('Y-m-d', $endDate);
                 
-                if ($return_code !== 0) {
-                    throw new Exception("mysqldump returned error code: $return_code");
-                } elseif (empty($backup_content)) {
-                    throw new Exception('mysqldump produced no output');
-                } elseif (strlen($backup_content) <= 1000) {
-                    throw new Exception('mysqldump produced insufficient content (' . strlen($backup_content) . ' bytes)');
-                } else {
-                    throw new Exception('mysqldump output does not contain expected SQL structure');
+                if (!$start || !$end) {
+                    throw new Exception('Invalid date format provided');
                 }
+                
+                if ($start > $end) {
+                    throw new Exception('Start date cannot be after end date');
+                }
+                
+                $dateRange = [
+                    'start' => $start->format('Y-m-d'),
+                    'end' => $end->format('Y-m-d'),
+                    'start_formatted' => $start->format('M j, Y'),
+                    'end_formatted' => $end->format('M j, Y'),
+                    'duration_years' => $start->diff($end)->format('%y'),
+                    'duration_months' => $start->diff($end)->format('%m'),
+                    'duration_days' => $start->diff($end)->days
+                ];
+            }
+            
+            $result = createDatabaseBackup('manual', $dateRange);
+            
+            if ($result['success']) {
+                $backupInfo = $result['filename'] . ' (' . $result['size_mb'] . ' MB)';
+                if ($dateRange) {
+                    $backupInfo .= ' [Period: ' . $dateRange['start_formatted'] . ' to ' . $dateRange['end_formatted'] . ']';
+                }
+                logActivity($_SESSION['user_id'], 'backup_database', 'Manual database backup created: ' . $backupInfo);
+                $message = 'Manual database backup created successfully: ' . $backupInfo;
+                $messageType = 'success';
+            } else {
+                throw new Exception($result['message']);
             }
             
         } catch (Exception $e) {
-            error_log("Backup exception: " . $e->getMessage());
-            $message = 'Error creating backup: ' . $e->getMessage();
+            error_log("Manual backup exception: " . $e->getMessage());
+            $message = 'Error creating manual backup: ' . $e->getMessage();
+            $messageType = 'danger';
+        }
+        
+    } elseif ($action === 'auto_backup_now') {
+        try {
+            $result = performAutomaticDatabaseBackup();
+            
+            if ($result['success']) {
+                $message = $result['message'];
+                $messageType = 'success';
+            } else {
+                throw new Exception($result['message']);
+            }
+            
+        } catch (Exception $e) {
+            error_log("Force automatic backup exception: " . $e->getMessage());
+            $message = 'Error performing automatic backup: ' . $e->getMessage();
             $messageType = 'danger';
         }
         
@@ -145,9 +125,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $subject = 'GASC Blood Bridge - Email Test';
                 $body = 'This is a test email from GASC Blood Bridge system. If you receive this, email configuration is working correctly.';
                 
-                if (sendEmail($test_email, $subject, $body)) {
+                $emailResult = sendEmail($test_email, $subject, $body);
+                
+                // Handle both old boolean return and new array return
+                $emailSent = false;
+                $emailLogged = false;
+                
+                if (is_array($emailResult)) {
+                    $emailSent = $emailResult['email_sent'] ?? false;
+                    $emailLogged = $emailResult['logged'] ?? false;
+                } else {
+                    $emailSent = $emailResult;
+                }
+                
+                if ($emailSent) {
                     $message = 'Test email sent successfully to ' . $test_email;
                     $messageType = 'success';
+                } elseif ($emailLogged) {
+                    $message = 'Email notifications are disabled. Test email details have been logged instead of sent.';
+                    $messageType = 'warning';
                 } else {
                     $message = 'Failed to send test email. Please check email configuration.';
                     $messageType = 'danger';
@@ -223,14 +219,10 @@ $defaults = [
     'site_name' => 'GASC Blood Bridge',
     'admin_email' => '',
     'max_requests_per_user' => 5,
-    'request_expiry_days' => 30,
-    'donation_cooldown_days' => 56,
-    'male_donation_gap_months' => 3,
-    'female_donation_gap_months' => 4,
-    'otp_expiry_minutes' => 10,
     'max_login_attempts' => 5,
     'session_timeout_minutes' => 30,
     'email_notifications' => 1,
+    'sms_notifications' => 0,
     'auto_expire_requests' => 1,
     'require_email_verification' => 1,
     'allow_registrations' => 1
@@ -254,17 +246,42 @@ $stats['database_size'] = $db->query("
     WHERE table_schema = DATABASE()
 ")->fetch_assoc()['size_mb'] ?? 0;
 
-// Get recent backups
+// Get recent backups (4 manual + 1 automatic = 5 total)
 $backup_files = [];
+$manual_backups = [];
+$auto_backups = [];
+
 if (is_dir('../database/')) {
     $files = glob('../database/backup_*.sql');
     foreach ($files as $file) {
-        $backup_files[] = [
+        $backup_info = [
             'name' => basename($file),
             'size' => filesize($file),
-            'date' => filemtime($file)
+            'date' => filemtime($file),
+            'type' => (strpos(basename($file), '_automatic_') !== false) ? 'auto' : 'manual'
         ];
+        
+        if ($backup_info['type'] === 'auto') {
+            $auto_backups[] = $backup_info;
+        } else {
+            $manual_backups[] = $backup_info;
+        }
     }
+    
+    // Sort by date (newest first)
+    usort($auto_backups, function($a, $b) {
+        return $b['date'] - $a['date'];
+    });
+    usort($manual_backups, function($a, $b) {
+        return $b['date'] - $a['date'];
+    });
+    
+    // Take 1 most recent automatic backup and 4 most recent manual backups
+    $selected_auto = array_slice($auto_backups, 0, 1);
+    $selected_manual = array_slice($manual_backups, 0, 4);
+    
+    // Combine and sort by date again
+    $backup_files = array_merge($selected_auto, $selected_manual);
     usort($backup_files, function($a, $b) {
         return $b['date'] - $a['date'];
     });
@@ -365,6 +382,55 @@ if (is_dir('../database/')) {
                 grid-template-columns: 1fr;
                 gap: 0.5rem;
             }
+        }
+        
+        /* Custom Popover Styles */
+        .backup-date-popover {
+            max-width: 300px;
+        }
+        
+        .backup-date-popover .popover-body {
+            padding: 0;
+        }
+        
+        .backup-date-range-form {
+            border-radius: 8px;
+        }
+        
+        .backup-date-range-form .form-control-sm {
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .backup-date-range-form .form-control-sm:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .backup-date-range-form .form-label {
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .backup-date-range-form .btn-sm {
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out;
+        }
+        
+        .backup-date-range-form .btn-primary {
+            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+            border: none;
+        }
+        
+        .backup-date-range-form .btn-primary:hover {
+            background: linear-gradient(135deg, #0b5ed7, #0a58ca);
+            transform: translateY(-1px);
+        }
+        
+        .backup-date-range-form .btn-outline-secondary:hover {
+            transform: translateY(-1px);
         }
     </style>
 </head>
@@ -517,47 +583,11 @@ if (is_dir('../database/')) {
                                     <div class="settings-section">
                                         <h6 class="text-primary">Request Limits</h6>
                                         <div class="row">
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <div class="mb-3">
-                                                    <label for="max_requests_per_user" class="form-label">Max Requests per User</label>
+                                                    <label for="max_requests_per_user" class="form-label">Max Requests per User per Day</label>
                                                     <input type="number" class="form-control" id="max_requests_per_user" name="max_requests_per_user" 
                                                            value="<?php echo $currentSettings['max_requests_per_user']; ?>" min="1" max="20">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="request_expiry_days" class="form-label">Request Expiry (Days)</label>
-                                                    <input type="number" class="form-control" id="request_expiry_days" name="request_expiry_days" 
-                                                           value="<?php echo $currentSettings['request_expiry_days']; ?>" min="1" max="365">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="donation_cooldown_days" class="form-label">Donation Cooldown (Days)</label>
-                                                    <input type="number" class="form-control" id="donation_cooldown_days" name="donation_cooldown_days" 
-                                                           value="<?php echo $currentSettings['donation_cooldown_days']; ?>" min="1" max="365">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="settings-section">
-                                        <h6 class="text-primary">Donation Rules (Advanced)</h6>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="male_donation_gap_months" class="form-label">Male Donation Gap (Months)</label>
-                                                    <input type="number" class="form-control" id="male_donation_gap_months" name="male_donation_gap_months" 
-                                                           value="<?php echo $currentSettings['male_donation_gap_months']; ?>" min="1" max="12">
-                                                    <div class="form-text">Minimum months between donations for males</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="female_donation_gap_months" class="form-label">Female Donation Gap (Months)</label>
-                                                    <input type="number" class="form-control" id="female_donation_gap_months" name="female_donation_gap_months" 
-                                                           value="<?php echo $currentSettings['female_donation_gap_months']; ?>" min="1" max="12">
-                                                    <div class="form-text">Minimum months between donations for females</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -566,15 +596,7 @@ if (is_dir('../database/')) {
                                     <div class="settings-section">
                                         <h6 class="text-primary">Security & Session Settings</h6>
                                         <div class="row">
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="otp_expiry_minutes" class="form-label">OTP Expiry (Minutes)</label>
-                                                    <input type="number" class="form-control" id="otp_expiry_minutes" name="otp_expiry_minutes" 
-                                                           value="<?php echo $currentSettings['otp_expiry_minutes']; ?>" min="1" max="60">
-                                                    <div class="form-text">How long OTP codes remain valid</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <div class="mb-3">
                                                     <label for="max_login_attempts" class="form-label">Max Login Attempts</label>
                                                     <input type="number" class="form-control" id="max_login_attempts" name="max_login_attempts" 
@@ -582,7 +604,7 @@ if (is_dir('../database/')) {
                                                     <div class="form-text">Failed attempts before lockout</div>
                                                 </div>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <div class="mb-3">
                                                     <label for="session_timeout_minutes" class="form-label">Session Timeout (Minutes)</label>
                                                     <input type="number" class="form-control" id="session_timeout_minutes" name="session_timeout_minutes" 
@@ -604,6 +626,16 @@ if (is_dir('../database/')) {
                                                            <?php echo $currentSettings['email_notifications'] ? 'checked' : ''; ?>>
                                                     <label class="form-check-label" for="email_notifications">
                                                         <i class="fas fa-envelope me-2 text-info"></i>Email Notifications
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="sms_notifications" name="sms_notifications"
+                                                           <?php echo $currentSettings['sms_notifications'] ? 'checked' : ''; ?> disabled>
+                                                    <label class="form-check-label" for="sms_notifications">
+                                                        <i class="fas fa-sms me-2 text-secondary"></i>SMS Notifications
+                                                        <small class="text-muted d-block">(In Development)</small>
                                                     </label>
                                                 </div>
                                             </div>
@@ -631,6 +663,16 @@ if (is_dir('../database/')) {
                                                            <?php echo $currentSettings['allow_registrations'] ? 'checked' : ''; ?>>
                                                     <label class="form-check-label" for="allow_registrations">
                                                         <i class="fas fa-user-plus me-2 text-primary"></i>Allow New Registrations
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="auto_backup_enabled" name="auto_backup_enabled"
+                                                           <?php echo SystemSettings::get('auto_backup_enabled', 1) ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="auto_backup_enabled">
+                                                        <i class="fas fa-database me-2 text-info"></i>Automatic Backup
+                                                        <small class="text-muted d-block">Every <?php echo SystemSettings::get('auto_backup_interval_years', 3); ?> years</small>
                                                     </label>
                                                 </div>
                                             </div>
@@ -725,29 +767,104 @@ if (is_dir('../database/')) {
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <form method="POST" action="" class="mb-3">
-                                    <input type="hidden" name="action" value="backup_database">
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="fas fa-download me-1"></i>Create Backup
-                                        </button>
+                                <!-- Automatic Backup Status -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <h6 class="small text-muted mb-2">Automatic Backup Status</h6>
+                                        <div class="mb-2">
+                                            <span class="badge <?php echo SystemSettings::get('auto_backup_enabled') ? 'bg-success' : 'bg-secondary'; ?>">
+                                                <?php echo SystemSettings::get('auto_backup_enabled') ? 'Enabled' : 'Disabled'; ?>
+                                            </span>
+                                            <small class="text-muted ms-2">
+                                                (Every <?php echo SystemSettings::get('auto_backup_interval_years', 3); ?> years)
+                                            </small>
+                                        </div>
+                                        <div class="small text-muted">
+                                            <strong>Last Auto Backup:</strong><br>
+                                            <?php 
+                                            $lastBackup = SystemSettings::get('last_automatic_backup');
+                                            echo $lastBackup ? date('M j, Y H:i', strtotime($lastBackup)) : 'Never';
+                                            ?>
+                                        </div>
+                                        <div class="small text-muted mt-1">
+                                            <strong>Next Auto Backup:</strong><br>
+                                            <?php echo getNextAutomaticBackupDate(); ?>
+                                        </div>
+                                        <?php if (isAutomaticBackupDue()): ?>
+                                            <div class="mt-2">
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>Automatic Backup Due!
+                                                </span>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
-                                </form>
+                                    <div class="col-md-6">
+                                        <h6 class="small text-muted mb-2">Backup Actions</h6>
+                                        <!-- Manual Backup with Date Range -->
+                                        <div class="mb-2">
+                                            <button type="button" class="btn btn-primary btn-sm w-100" 
+                                                    data-bs-toggle="popover" 
+                                                    data-bs-placement="bottom" 
+                                                    data-bs-html="true" 
+                                                    data-bs-content="" 
+                                                    id="manualBackupBtn">
+                                                <i class="fas fa-download me-1"></i>Create Manual Backup
+                                            </button>
+                                        </div>
+                                        <?php if (isAutomaticBackupDue()): ?>
+                                        <form method="POST" action="" class="mb-2">
+                                            <input type="hidden" name="action" value="auto_backup_now">
+                                            <div class="d-grid">
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-clock me-1"></i>Run Automatic Backup Now
+                                                </button>
+                                            </div>
+                                        </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <hr>
                                 
                                 <?php if (!empty($backup_files)): ?>
-                                    <h6 class="small text-muted mb-2">Recent Backups</h6>
+                                    <h6 class="small text-muted mb-2">Recent Backups (4 Manual + 1 Auto)</h6>
                                     <div class="backup-list" style="max-height: 200px; overflow-y: auto;">
-                                        <?php foreach (array_slice($backup_files, 0, 5) as $backup): ?>
-                                            <div class="backup-item">
+                                        <?php foreach ($backup_files as $backup): ?>
+                                            <div class="backup-item d-flex justify-content-between align-items-center py-2 border-bottom">
                                                 <div>
-                                                    <div class="small fw-bold"><?php echo htmlspecialchars($backup['name']); ?></div>
+                                                    <div class="small fw-bold">
+                                                        <?php 
+                                                        $name = htmlspecialchars($backup['name']);
+                                                        // Add type indicator based on stored type
+                                                        if ($backup['type'] === 'auto') {
+                                                            echo '<i class="fas fa-clock text-success me-1" title="Automatic Backup"></i>';
+                                                        } else {
+                                                            echo '<i class="fas fa-user text-primary me-1" title="Manual Backup"></i>';
+                                                        }
+                                                        echo $name;
+                                                        ?>
+                                                    </div>
                                                     <div class="text-muted" style="font-size: 0.75rem;">
                                                         <?php echo date('M j, Y H:i', $backup['date']); ?> 
                                                         (<?php echo round($backup['size'] / 1024 / 1024, 2); ?> MB)
                                                     </div>
                                                 </div>
+                                                <div>
+                                                    <?php if ($backup['type'] === 'auto'): ?>
+                                                        <span class="badge bg-success">Auto</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-primary">Manual</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                         <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-database fa-2x mb-2"></i>
+                                        <p class="mb-0">No backups found</p>
+                                        <small>Create your first backup above<br>
+                                        <em>Recent backups will show 4 manual + 1 automatic</em></small>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -864,6 +981,151 @@ if (is_dir('../database/')) {
                     hideSidebar();
                 }
             });
+        });
+
+        // Manual Backup Date Range Popover
+        let dateRangePopover; // Declare popover variable in global scope
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const manualBackupBtn = document.getElementById('manualBackupBtn');
+            const today = new Date().toISOString().split('T')[0];
+            const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            // Popover content
+            const popoverContent = `
+                <div class="backup-date-range-form" style="width: 280px; padding: 4px;">
+                    <form method="POST" action="" id="dateRangeBackupForm">
+                        <input type="hidden" name="action" value="backup_database">
+                        
+                        <div class="text-center mb-3">
+                            <h6 class="mb-0 fw-bold text-primary">
+                                <i class="fas fa-calendar-alt me-2"></i>Backup Date Range
+                            </h6>
+                            <small class="text-muted">Select the period to backup</small>
+                        </div>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label for="start_date" class="form-label small fw-semibold mb-1">From</label>
+                                <input type="date" class="form-control form-control-sm" 
+                                       id="start_date" name="start_date" 
+                                       value="${oneYearAgo}" 
+                                       max="${today}" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="end_date" class="form-label small fw-semibold mb-1">To</label>
+                                <input type="date" class="form-control form-control-sm" 
+                                       id="end_date" name="end_date" 
+                                       value="${today}" 
+                                       max="${today}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 text-center" style="min-height: 20px;">
+                            <div id="dateRangeInfo" class="small"></div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-download me-2"></i>Create Backup
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelBackupBtn">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // Initialize popover
+            dateRangePopover = new bootstrap.Popover(manualBackupBtn, {
+                content: popoverContent,
+                html: true,
+                placement: 'left',
+                trigger: 'click',
+                sanitize: false,
+                customClass: 'backup-date-popover'
+            });
+            
+            // Handle popover shown event
+            manualBackupBtn.addEventListener('shown.bs.popover', function() {
+                const startDateInput = document.getElementById('start_date');
+                const endDateInput = document.getElementById('end_date');
+                const dateRangeInfo = document.getElementById('dateRangeInfo');
+                const cancelBtn = document.getElementById('cancelBackupBtn');
+                
+                // Add cancel button event listener
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', function() {
+                        dateRangePopover.hide();
+                    });
+                }
+                
+                function updateDateRangeInfo() {
+                    const startDate = new Date(startDateInput.value);
+                    const endDate = new Date(endDateInput.value);
+                    
+                    if (startDate && endDate && startDate <= endDate) {
+                        const diffTime = Math.abs(endDate - startDate);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        
+                        let durationText = '';
+                        if (diffDays === 0) {
+                            durationText = 'Same day';
+                        } else if (diffDays === 1) {
+                            durationText = '1 day';
+                        } else if (diffDays < 30) {
+                            durationText = `${diffDays} days`;
+                        } else if (diffDays < 365) {
+                            const months = Math.floor(diffDays / 30);
+                            const remainingDays = diffDays % 30;
+                            durationText = months === 1 ? '1 month' : `${months} months`;
+                            if (remainingDays > 0) durationText += ` ${remainingDays}d`;
+                        } else {
+                            const years = Math.floor(diffDays / 365);
+                            const remainingDays = diffDays % 365;
+                            const months = Math.floor(remainingDays / 30);
+                            durationText = years === 1 ? '1 year' : `${years} years`;
+                            if (months > 0) durationText += ` ${months}m`;
+                        }
+                        
+                        dateRangeInfo.innerHTML = `
+                            <span class="badge bg-light text-dark border">
+                                <i class="fas fa-clock me-1"></i>${durationText}
+                            </span>
+                        `;
+                    } else if (startDate > endDate) {
+                        dateRangeInfo.innerHTML = `
+                            <span class="badge bg-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Invalid range
+                            </span>
+                        `;
+                    } else {
+                        dateRangeInfo.innerHTML = '';
+                    }
+                }
+                
+                startDateInput.addEventListener('change', updateDateRangeInfo);
+                endDateInput.addEventListener('change', updateDateRangeInfo);
+                updateDateRangeInfo(); // Initial calculation
+                
+                // Set max date for start date when end date changes
+                endDateInput.addEventListener('change', function() {
+                    startDateInput.max = endDateInput.value;
+                });
+                
+                // Set min date for end date when start date changes
+                startDateInput.addEventListener('change', function() {
+                    endDateInput.min = startDateInput.value;
+                });
+            });
+            
+            // Global function to hide popover
+            window.hidePopover = function() {
+                if (dateRangePopover) {
+                    dateRangePopover.hide();
+                }
+            };
         });
     </script>
 </body>

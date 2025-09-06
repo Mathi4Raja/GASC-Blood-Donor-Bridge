@@ -45,9 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Invalid security token. Please try again.');
         }
         
-        // Rate limiting
-        if (!checkRateLimit('admin_login', 5, 300)) {
-            throw new Exception('Too many login attempts. Please try again later.');
+        // Rate limiting with system settings
+        require_once '../config/system-settings.php';
+        $maxLoginAttempts = SystemSettings::getMaxLoginAttempts();
+        if (!checkRateLimit('admin_login', $maxLoginAttempts, 300)) {
+            throw new Exception("Too many login attempts. Please try again later.");
         }
         
         $email = sanitizeInput($_POST['email'] ?? '');

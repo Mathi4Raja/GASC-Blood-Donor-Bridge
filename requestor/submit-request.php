@@ -2,6 +2,15 @@
 // Initialize secure session BEFORE database connection
 require_once '../config/session.php';
 
+// Check for session timeout first
+$timeoutMessage = checkSessionTimeout();
+if ($timeoutMessage) {
+    // Session has expired
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.', 'timeout' => true]);
+    exit;
+}
+
 // Simple session-based authentication for requestors
 if (!isset($_SESSION['requestor_email'])) {
     http_response_code(401);
@@ -58,6 +67,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Units needed must be between 1 and 10.');
         }
         
+        // Check request limits per user per day
+        require_once '../config/system-settings.php';
+        $maxRequestsPerDay = SystemSettings::getMaxRequestsPerUser();
+        
+        $db = new Database();
+        
+        // Count requests from this email today
+        $todayStart = date('Y-m-d 00:00:00');
+        $todayEnd = date('Y-m-d 23:59:59');
+        $requestCountQuery = "SELECT COUNT(*) as count FROM blood_requests 
+                             WHERE requester_email = ? 
+                             AND created_at BETWEEN ? AND ?";
+        $requestCountResult = $db->query($requestCountQuery, [$requesterEmail, $todayStart, $todayEnd]);
+        $requestCount = $requestCountResult->fetch_assoc()['count'];
+        
+        if ($requestCount >= $maxRequestsPerDay) {
+            throw new Exception("Request limit exceeded. You can only submit {$maxRequestsPerDay} request(s) per day.");
+        }
+        
         // Calculate expiry date based on urgency
         $expiryDays = [
             'Critical' => 1,
@@ -68,7 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $expiresAt = date('Y-m-d H:i:s', strtotime("+{$expiryDays[$urgency]} days"));
         
         // Insert blood request
-        $db = new Database();
         $sql = "INSERT INTO blood_requests (requester_name, requester_email, requester_phone, blood_group, urgency, details, city, units_needed, expires_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         

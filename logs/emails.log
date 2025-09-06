@@ -29,3 +29,22 @@ Body:
             </div>
             
 ================================================================================
+TEST LOG ENTRY - 2025-09-05 19:05:24 - Consolidated logging verification
+NOTIFICATION DISABLED - Password Reset Request:
+Email: aientirely@gmail.com
+User Name: System Administrator
+User Type: admin
+Reset Token: 4bfa21c065fe89ae093b82cd5c495a57bb3c2e6148789f9b652b82c38a702114
+Request Time: 2025-09-06 16:56:05
+Note: Password reset email would have been sent
+Manual Reset: Admin can reset password directly in user management
+----------------------------------------
+NOTIFICATION DISABLED - Password Reset Request:
+Email: donor@example.com
+User Name: Test Donor
+User Type: donor
+Reset Token: test_token_donor_123
+Request Time: 2025-09-06 17:17:18
+Note: Password reset email would have been sent
+Manual Reset: Admin can reset password directly in user management
+----------------------------------------
