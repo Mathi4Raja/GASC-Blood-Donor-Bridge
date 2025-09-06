@@ -155,12 +155,21 @@ function sendBloodRequestNotification($donorEmail, $donorName, $requestDetails) 
     
     $subject = "Urgent Blood Request - Your Help Needed!";
     
-    $urgencyColor = match($requestDetails['urgency']) {
-        'Critical' => '#dc2626',
-        'Urgent' => '#f59e0b',
-        'Normal' => '#059669',
-        default => '#6b7280'
-    };
+    // PHP 7.2 compatible switch for urgency color
+    switch($requestDetails['urgency']) {
+        case 'Critical':
+            $urgencyColor = '#dc2626';
+            break;
+        case 'Urgent':
+            $urgencyColor = '#f59e0b';
+            break;
+        case 'Normal':
+            $urgencyColor = '#059669';
+            break;
+        default:
+            $urgencyColor = '#6b7280';
+            break;
+    }
     
     $body = "
     <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;'>
