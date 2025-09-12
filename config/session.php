@@ -74,7 +74,16 @@ if (!function_exists('checkSessionTimeout')) {
         
         // Check timeout based on last activity
         if (isset($_SESSION['last_activity'])) {
-            $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
+            // Get session timeout from system settings (default 30 minutes if not available)
+            $sessionTimeoutMinutes = 30;
+            if (class_exists('SystemSettings')) {
+                try {
+                    $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
+                } catch (Exception $e) {
+                    // Fallback to default if settings not available
+                    $sessionTimeoutMinutes = 30;
+                }
+            }
             $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
             $timeSinceActivity = time() - $_SESSION['last_activity'];
             

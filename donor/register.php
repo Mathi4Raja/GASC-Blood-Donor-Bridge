@@ -88,17 +88,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Check if email verification is required
         $requireEmailVerification = SystemSettings::isEmailVerificationRequired();
-        $emailVerified = !$requireEmailVerification; // If verification not required, mark as verified
+        $emailVerified = !$requireEmailVerification ? 1 : 0; // If verification not required, mark as verified
+        $verificationTokenValue = $requireEmailVerification ? $verificationToken : null;
+        $userType = 'donor';
         
         // Insert new donor
         $sql = "INSERT INTO users (roll_no, name, email, phone, password_hash, user_type, gender, date_of_birth, class, blood_group, city, email_verification_token, email_verified) 
-                VALUES (?, ?, ?, ?, ?, 'donor', ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $db->prepare($sql);
         $stmt->bind_param('ssssssssssssi', 
-            $rollNo, $name, $email, $phone, $hashedPassword, 
+            $rollNo, $name, $email, $phone, $hashedPassword, $userType,
             $gender, $dateOfBirth, $class, $bloodGroup, $city, 
-            $requireEmailVerification ? $verificationToken : null, $emailVerified
+            $verificationTokenValue, $emailVerified
         );
         
         if ($stmt->execute()) {

@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Check request limits per user per day
-        require_once 'config/system-settings.php';
+        require_once '../config/system-settings.php';
         $maxRequestsPerDay = SystemSettings::getMaxRequestsPerUser();
         
         // Initialize database connection
