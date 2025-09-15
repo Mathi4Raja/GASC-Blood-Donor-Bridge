@@ -98,18 +98,18 @@ try {
             <table class="table table-borderless">
                 <tr>
                     <td><strong>Created:</strong></td>
-                    <td>' . date('M d, Y H:i', strtotime($request['created_at'])) . '</td>
+                    <td>' . formatISTDateTime($request['created_at'], 'M d, Y h:i A') . '</td>
                 </tr>
                 <tr>
                     <td><strong>Last Updated:</strong></td>
-                    <td>' . date('M d, Y H:i', strtotime($request['updated_at'])) . '</td>
+                    <td>' . formatISTDateTime($request['updated_at'], 'M d, Y h:i A') . '</td>
                 </tr>';
     
     if ($request['status'] === 'Active') {
         $html .= '
                 <tr>
                     <td><strong>Expires At:</strong></td>
-                    <td class="text-warning">' . date('M d, Y H:i', strtotime($request['expires_at'])) . '</td>
+                    <td class="text-warning">' . formatISTDateTime($request['expires_at'], 'M d, Y h:i A') . '</td>
                 </tr>';
     }
     

@@ -269,12 +269,22 @@ body .main-content {
     box-sizing: border-box;
 }
 
+/* Mobile: Add top padding to prevent overlap with hamburger menu */
+@media (max-width: 991px) {
+    body .main-content {
+        padding-top: 90px !important; /* Space for hamburger menu */
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+}
+
 @media (min-width: 992px) {
     body .main-content {
         margin-left: 280px !important;
         width: calc(100% - 280px) !important;
         padding-left: 20px !important;
         padding-right: 20px !important;
+        padding-top: 20px !important; /* Reset to normal on desktop */
         min-width: 0 !important;
         max-width: none !important;
     }
@@ -305,9 +315,19 @@ body .main-content {
     transition: margin-left 0.3s ease;
 }
 
+/* Mobile: Add top padding to prevent overlap with hamburger menu */
+@media (max-width: 991px) {
+    .donor-main-content {
+        padding-top: 90px !important; /* Space for hamburger menu */
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+}
+
 @media (min-width: 992px) {
     .donor-main-content {
         margin-left: 280px;
+        padding-top: 20px; /* Reset to normal on desktop */
     }
 }
 
@@ -329,11 +349,13 @@ body .main-content {
     .main-content {
         margin-left: 0 !important;
         width: 100% !important;
+        padding-top: 90px !important; /* Ensure space for hamburger menu */
     }
     
     .donor-main-content {
         margin-left: 0 !important;
         width: 100% !important;
+        padding-top: 90px !important; /* Ensure space for hamburger menu */
     }
     
     /* Ensure close button is visible on mobile */
@@ -382,6 +404,12 @@ body .main-content {
     
     .main-content {
         padding: 15px;
+        padding-top: 80px !important; /* Adjusted for smaller hamburger menu */
+    }
+    
+    .donor-main-content {
+        padding: 15px;
+        padding-top: 80px !important; /* Adjusted for smaller hamburger menu */
     }
     
     /* Ensure close button is always visible on mobile */

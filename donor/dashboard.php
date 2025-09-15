@@ -1,8 +1,7 @@
 <?php
 // Set timezone for consistent dashboard timestamps
-date_default_timezone_set('Asia/Kolkata');
-?>
-<?php
+require_once '../config/timezone.php';
+
 require_once '../config/database.php';
 require_once 'includes/sidebar-utils.php';
 
@@ -728,9 +727,12 @@ try {
             
             // Update time display
             function updateTime() {
-                const now = new Date();
-                const timeString = now.toLocaleString();
+                const istTime = ISTUtils.formatISTDate(new Date(), 'datetime') + ' IST';
                 // Update any time displays if needed
+                const timeElements = document.querySelectorAll('.current-time');
+                timeElements.forEach(element => {
+                    element.textContent = istTime;
+                });
             }
             
             // Call updateTime every minute
@@ -802,6 +804,7 @@ try {
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/timezone-utils.js"></script>
     <script src="../assets/js/loading-manager.js"></script>
     <!-- Unified Sidebar JS -->
     <script src="includes/sidebar.js"></script>

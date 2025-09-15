@@ -22,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'admin_email' => $_POST['admin_email'] ?? '',
                 'max_requests_per_user' => (int)($_POST['max_requests_per_user'] ?? 5),
                 'max_login_attempts' => (int)($_POST['max_login_attempts'] ?? 5),
-                'session_timeout_minutes' => (int)($_POST['session_timeout_minutes'] ?? 30),
                 'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
                 'sms_notifications' => isset($_POST['sms_notifications']) ? 1 : 0,
                 'auto_expire_requests' => isset($_POST['auto_expire_requests']) ? 1 : 0,
@@ -117,45 +116,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $messageType = 'danger';
         }
         
-    } elseif ($action === 'test_email') {
-        $test_email = $_POST['test_email'] ?? '';
+    } elseif ($action === 'delete_data') {
+        $start_date = $_POST['start_date'] ?? '';
+        $end_date = $_POST['end_date'] ?? '';
         
-        if (filter_var($test_email, FILTER_VALIDATE_EMAIL)) {
-            try {
-                $subject = 'GASC Blood Bridge - Email Test';
-                $body = 'This is a test email from GASC Blood Bridge system. If you receive this, email configuration is working correctly.';
-                
-                $emailResult = sendEmail($test_email, $subject, $body);
-                
-                // Handle both old boolean return and new array return
-                $emailSent = false;
-                $emailLogged = false;
-                
-                if (is_array($emailResult)) {
-                    $emailSent = $emailResult['email_sent'] ?? false;
-                    $emailLogged = $emailResult['logged'] ?? false;
-                } else {
-                    $emailSent = $emailResult;
-                }
-                
-                if ($emailSent) {
-                    $message = 'Test email sent successfully to ' . $test_email;
-                    $messageType = 'success';
-                } elseif ($emailLogged) {
-                    $message = 'Email notifications are disabled. Test email details have been logged instead of sent.';
-                    $messageType = 'warning';
-                } else {
-                    $message = 'Failed to send test email. Please check email configuration.';
-                    $messageType = 'danger';
-                }
-                
-            } catch (Exception $e) {
-                $message = 'Error sending test email: ' . $e->getMessage();
-                $messageType = 'danger';
+        try {
+            if (empty($start_date) || empty($end_date)) {
+                throw new Exception('Both start and end dates are required.');
             }
-        } else {
-            $message = 'Please enter a valid email address.';
-            $messageType = 'warning';
+            
+            // Validate date format and range
+            $startDateTime = DateTime::createFromFormat('Y-m-d', $start_date);
+            $endDateTime = DateTime::createFromFormat('Y-m-d', $end_date);
+            
+            if (!$startDateTime || !$endDateTime) {
+                throw new Exception('Invalid date format provided.');
+            }
+            
+            if ($startDateTime > $endDateTime) {
+                throw new Exception('Start date cannot be after end date.');
+            }
+            
+            if ($endDateTime > new DateTime()) {
+                throw new Exception('End date cannot be in the future.');
+            }
+            
+            // Calculate date range info
+            $dateDiff = $startDateTime->diff($endDateTime);
+            $totalDays = $dateDiff->days;
+            $years = $dateDiff->y;
+            $months = $dateDiff->m;
+            $days = $dateDiff->d;
+            
+            // Format date range for logging
+            $dateRangeText = $startDateTime->format('M j, Y') . ' to ' . $endDateTime->format('M j, Y');
+            $durationText = '';
+            if ($years > 0) $durationText .= $years . ' year' . ($years > 1 ? 's' : '') . ' ';
+            if ($months > 0) $durationText .= $months . ' month' . ($months > 1 ? 's' : '') . ' ';
+            if ($days > 0) $durationText .= $days . ' day' . ($days > 1 ? 's' : '');
+            $durationText = trim($durationText);
+            
+            // Get mysqli connection and start transaction
+            $mysqli = $db->getConnection();
+            $mysqli->autocommit(false);
+            
+            try {
+                // Prepare date range variables for bind_param
+                $startDateTime = $start_date . ' 00:00:00';
+                $endDateTime = $end_date . ' 23:59:59';
+                
+                // Delete user data (excluding admins and moderators)
+                $deleteUsersSQL = "DELETE FROM users WHERE user_type = 'donor' AND created_at BETWEEN ? AND ?";
+                $stmt = $db->prepare($deleteUsersSQL);
+                $stmt->bind_param('ss', $startDateTime, $endDateTime);
+                $stmt->execute();
+                $deletedUsers = $stmt->affected_rows;
+                
+                // Delete blood requests
+                $deleteRequestsSQL = "DELETE FROM blood_requests WHERE created_at BETWEEN ? AND ?";
+                $stmt = $db->prepare($deleteRequestsSQL);
+                $stmt->bind_param('ss', $startDateTime, $endDateTime);
+                $stmt->execute();
+                $deletedRequests = $stmt->affected_rows;
+                
+                // Keep activity logs for audit trail - do not delete
+                $deletedLogs = 0;
+                
+                // Commit transaction
+                $mysqli->commit();
+                $mysqli->autocommit(true);
+                
+                // Log the deletion activity
+                $deletionDetails = "Data deletion completed for period: {$dateRangeText} ({$durationText}). Deleted: {$deletedUsers} users, {$deletedRequests} requests. Activity logs preserved for audit trail.";
+                logActivity($_SESSION['user_id'], 'data_deletion', $deletionDetails);
+                
+                $message = "Data deletion completed successfully for period: {$dateRangeText} ({$durationText}). Deleted: {$deletedUsers} donor accounts, {$deletedRequests} blood requests. Activity logs preserved for audit trail.";
+                $messageType = 'success';
+                
+            } catch (Exception $dbError) {
+                $mysqli->rollback();
+                $mysqli->autocommit(true);
+                throw new Exception('Database error during deletion: ' . $dbError->getMessage());
+            }
+            
+        } catch (Exception $e) {
+            error_log("Data deletion exception: " . $e->getMessage());
+            $message = 'Error deleting data: ' . $e->getMessage();
+            $messageType = 'danger';
         }
         
     } elseif ($action === 'change_password') {
@@ -220,7 +267,6 @@ $defaults = [
     'admin_email' => '',
     'max_requests_per_user' => 5,
     'max_login_attempts' => 5,
-    'session_timeout_minutes' => 30,
     'email_notifications' => 1,
     'sms_notifications' => 0,
     'auto_expire_requests' => 1,
@@ -329,6 +375,14 @@ if (is_dir('../database/')) {
             border: 1px solid #e9ecef;
             border-radius: 8px;
             margin-bottom: 10px;
+            overflow: hidden;
+            word-wrap: break-word;
+        }
+        
+        .backup-item .small {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
         
         .form-switch .form-check-input {
@@ -382,6 +436,31 @@ if (is_dir('../database/')) {
                 grid-template-columns: 1fr;
                 gap: 0.5rem;
             }
+            
+            .backup-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .backup-item .small {
+                word-break: break-all;
+                overflow-wrap: break-word;
+                max-width: 100%;
+            }
+            
+            .feature-item .form-check-label {
+                font-size: 0.9rem;
+                word-break: break-word;
+            }
+            
+            /* Fix for long system setting texts */
+            .settings-card .form-text,
+            .settings-card .text-muted {
+                word-break: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+            }
         }
         
         /* Custom Popover Styles */
@@ -431,6 +510,71 @@ if (is_dir('../database/')) {
         
         .backup-date-range-form .btn-outline-secondary:hover {
             transform: translateY(-1px);
+        }
+        
+        /* Delete Data Popover Styles */
+        .delete-date-popover {
+            max-width: 340px;
+        }
+        
+        .delete-date-popover .popover-body {
+            padding: 0;
+        }
+        
+        .delete-date-range-form {
+            border-radius: 8px;
+        }
+        
+        .delete-date-range-form .form-control-sm {
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .delete-date-range-form .form-control-sm:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+        }
+        
+        .delete-date-range-form .form-label {
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .delete-date-range-form .btn-sm {
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out;
+        }
+        
+        .delete-date-range-form .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            border: none;
+        }
+        
+        .delete-date-range-form .btn-danger:hover:not(:disabled) {
+            background: linear-gradient(135deg, #c82333, #bd2130);
+            transform: translateY(-1px);
+        }
+        
+        .delete-date-range-form .btn-danger:disabled {
+            background: #6c757d;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .delete-date-range-form .btn-outline-secondary:hover {
+            transform: translateY(-1px);
+        }
+        
+        .delete-date-range-form .alert-sm {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .delete-date-range-form .form-check-label {
+            font-size: 0.875rem;
+            color: #495057;
         }
     </style>
 </head>
@@ -590,26 +734,12 @@ if (is_dir('../database/')) {
                                                            value="<?php echo $currentSettings['max_requests_per_user']; ?>" min="1" max="20">
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="settings-section">
-                                        <h6 class="text-primary">Security & Session Settings</h6>
-                                        <div class="row">
                                             <div class="col-md-6">
                                                 <div class="mb-3">
                                                     <label for="max_login_attempts" class="form-label">Max Login Attempts</label>
                                                     <input type="number" class="form-control" id="max_login_attempts" name="max_login_attempts" 
                                                            value="<?php echo $currentSettings['max_login_attempts']; ?>" min="3" max="10">
                                                     <div class="form-text">Failed attempts before lockout</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="session_timeout_minutes" class="form-label">Session Timeout (Minutes)</label>
-                                                    <input type="number" class="form-control" id="session_timeout_minutes" name="session_timeout_minutes" 
-                                                           value="<?php echo $currentSettings['session_timeout_minutes']; ?>" min="5" max="480">
-                                                    <div class="form-text">Automatic logout after inactivity</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -736,26 +866,37 @@ if (is_dir('../database/')) {
                             </div>
                         </div>
                         
-                        <!-- Email Test -->
+                        <!-- Delete Data -->
                         <div class="card settings-card">
-                            <div class="card-header">
+                            <div class="card-header bg-danger text-white">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-envelope me-2"></i>Email Test
+                                    <i class="fas fa-trash-alt me-2"></i>Delete Data
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <form method="POST" action="">
-                                    <input type="hidden" name="action" value="test_email">
-                                    <div class="mb-3">
-                                        <label for="test_email" class="form-label">Test Email Address</label>
-                                        <input type="email" class="form-control" id="test_email" name="test_email" required>
-                                    </div>
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-outline-primary btn-sm">
-                                            <i class="fas fa-paper-plane me-1"></i>Send Test Email
-                                        </button>
-                                    </div>
-                                </form>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-danger w-100" 
+                                            data-bs-toggle="popover" 
+                                            data-bs-placement="bottom" 
+                                            data-bs-html="true" 
+                                            data-bs-content="" 
+                                            id="deleteDataBtn">
+                                        <i class="fas fa-trash-alt me-2"></i>Delete Data by Date Range
+                                    </button>
+                                </div>
+                                
+                                <div class="small text-muted">
+                                    <strong>What will be deleted:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Donor user accounts created in the selected period</li>
+                                        <li>Blood requests submitted in the selected period</li>
+                                    </ul>
+                                    <strong class="text-success mt-2 d-block">What will be preserved:</strong>
+                                    <ul class="mb-0 mt-1">
+                                        <li>Activity logs (kept for audit trail)</li>
+                                        <li>Admin and moderator accounts</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         
@@ -783,7 +924,7 @@ if (is_dir('../database/')) {
                                             <strong>Last Auto Backup:</strong><br>
                                             <?php 
                                             $lastBackup = SystemSettings::get('last_automatic_backup');
-                                            echo $lastBackup ? date('M j, Y H:i', strtotime($lastBackup)) : 'Never';
+                                            echo $lastBackup ? formatISTDateTime($lastBackup, 'M j, Y h:i A') : 'Never';
                                             ?>
                                         </div>
                                         <div class="small text-muted mt-1">
@@ -845,7 +986,7 @@ if (is_dir('../database/')) {
                                                         ?>
                                                     </div>
                                                     <div class="text-muted" style="font-size: 0.75rem;">
-                                                        <?php echo date('M j, Y H:i', $backup['date']); ?> 
+                                                        <?php echo formatISTDateTime(date('Y-m-d H:i:s', $backup['date']), 'M j, Y h:i A'); ?> 
                                                         (<?php echo round($backup['size'] / 1024 / 1024, 2); ?> MB)
                                                     </div>
                                                 </div>
@@ -876,12 +1017,17 @@ if (is_dir('../database/')) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/timezone-utils.js"></script>
     <script src="../assets/js/loading-manager.js"></script>
     <script>
-        // Auto-hide alerts after 5 seconds
+        // Auto-hide alerts after 5 seconds (except delete data success messages)
         setTimeout(function() {
             const alerts = document.querySelectorAll('.alert');
             alerts.forEach(function(alert) {
+                // Don't auto-dismiss delete data success messages
+                if (alert.textContent.includes('Data deletion completed successfully')) {
+                    return;
+                }
                 const bsAlert = new bootstrap.Alert(alert);
                 bsAlert.close();
             });
@@ -988,8 +1134,8 @@ if (is_dir('../database/')) {
         
         document.addEventListener('DOMContentLoaded', function() {
             const manualBackupBtn = document.getElementById('manualBackupBtn');
-            const today = new Date().toISOString().split('T')[0];
-            const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const today = ISTUtils.getCurrentISTDate(true);
+            const oneYearAgo = ISTUtils.getISTDateWithOffset(-365);
             
             // Popover content
             const popoverContent = `
@@ -1126,6 +1272,170 @@ if (is_dir('../database/')) {
                     dateRangePopover.hide();
                 }
             };
+            
+            // Delete Data Date Range Popover
+            const deleteDataBtn = document.getElementById('deleteDataBtn');
+            if (deleteDataBtn) {
+                const today = ISTUtils.getCurrentISTDate(true);
+                const threeYearsAgo = ISTUtils.getISTDateWithOffset(-1095); // 3 years ago
+                
+                // Delete Data Popover content
+                const deletePopoverContent = `
+                    <div class="delete-date-range-form" style="width: 320px; padding: 4px;">
+                        <form method="POST" action="" id="deleteDateRangeForm">
+                            <input type="hidden" name="action" value="delete_data">
+                            
+                            <div class="text-center mb-3">
+                                <h6 class="mb-0 fw-bold text-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Data Range
+                                </h6>
+                                <small class="text-muted">Select the period to delete data from</small>
+                            </div>
+                            
+                            <div class="alert alert-danger alert-sm py-2 mb-3">
+                                <small><strong>Warning:</strong> This action cannot be undone!</small>
+                            </div>
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label for="delete_start_date" class="form-label small fw-semibold mb-1">From</label>
+                                    <input type="date" class="form-control form-control-sm" 
+                                           id="delete_start_date" name="start_date" 
+                                           value="${threeYearsAgo}" 
+                                           max="${today}" required>
+                                </div>
+                                <div class="col-6">
+                                    <label for="delete_end_date" class="form-label small fw-semibold mb-1">To</label>
+                                    <input type="date" class="form-control form-control-sm" 
+                                           id="delete_end_date" name="end_date" 
+                                           value="${today}" 
+                                           max="${today}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 text-center" style="min-height: 20px;">
+                                <div id="deleteDateRangeInfo" class="small"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                                    <label class="form-check-label small" for="confirmDelete">
+                                        I understand this will permanently delete data
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-danger btn-sm" id="confirmDeleteBtn" disabled>
+                                    <i class="fas fa-trash-alt me-2"></i>Delete Data
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelDeleteBtn">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                
+                // Initialize delete data popover
+                const deleteDataPopover = new bootstrap.Popover(deleteDataBtn, {
+                    content: deletePopoverContent,
+                    html: true,
+                    placement: 'bottom',
+                    trigger: 'click',
+                    sanitize: false,
+                    customClass: 'delete-date-popover'
+                });
+                
+                // Handle popover shown event for delete data
+                deleteDataBtn.addEventListener('shown.bs.popover', function() {
+                    const deleteStartDate = document.getElementById('delete_start_date');
+                    const deleteEndDate = document.getElementById('delete_end_date');
+                    const deleteDateRangeInfo = document.getElementById('deleteDateRangeInfo');
+                    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+                    const confirmDeleteCheckbox = document.getElementById('confirmDelete');
+                    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+                    const deleteForm = document.getElementById('deleteDateRangeForm');
+                    
+                    // Cancel button event listener
+                    if (cancelDeleteBtn) {
+                        cancelDeleteBtn.addEventListener('click', function() {
+                            deleteDataPopover.hide();
+                        });
+                    }
+                    
+                    // Checkbox event listener
+                    if (confirmDeleteCheckbox && confirmDeleteBtn) {
+                        confirmDeleteCheckbox.addEventListener('change', function() {
+                            confirmDeleteBtn.disabled = !this.checked;
+                        });
+                    }
+                    
+                    // Form submission confirmation
+                    if (deleteForm) {
+                        deleteForm.addEventListener('submit', function(e) {
+                            if (!confirm('Are you absolutely sure you want to delete this data? This action cannot be undone!')) {
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+                    }
+                    
+                    function updateDeleteDateRangeInfo() {
+                        const startDate = new Date(deleteStartDate.value);
+                        const endDate = new Date(deleteEndDate.value);
+                        
+                        if (startDate && endDate && startDate <= endDate) {
+                            const diffTime = Math.abs(endDate - startDate);
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            
+                            // Calculate years, months, days
+                            const years = Math.floor(diffDays / 365);
+                            const remainingDaysAfterYears = diffDays % 365;
+                            const months = Math.floor(remainingDaysAfterYears / 30);
+                            const days = remainingDaysAfterYears % 30;
+                            
+                            let durationText = '';
+                            if (years > 0) durationText += years + (years === 1 ? ' year ' : ' years ');
+                            if (months > 0) durationText += months + (months === 1 ? ' month ' : ' months ');
+                            if (days > 0) durationText += days + (days === 1 ? ' day' : ' days');
+                            
+                            durationText = durationText.trim() || 'Same day';
+                            
+                            deleteDateRangeInfo.innerHTML = `
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-clock me-1"></i>${durationText}
+                                </span>
+                                <div class="mt-1 text-danger">
+                                    <small><strong>Period:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</small>
+                                </div>
+                            `;
+                        } else if (startDate > endDate) {
+                            deleteDateRangeInfo.innerHTML = `
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Invalid range
+                                </span>
+                            `;
+                        } else {
+                            deleteDateRangeInfo.innerHTML = '';
+                        }
+                    }
+                    
+                    deleteStartDate.addEventListener('change', updateDeleteDateRangeInfo);
+                    deleteEndDate.addEventListener('change', updateDeleteDateRangeInfo);
+                    updateDeleteDateRangeInfo(); // Initial calculation
+                    
+                    // Set date constraints
+                    deleteEndDate.addEventListener('change', function() {
+                        deleteStartDate.max = deleteEndDate.value;
+                    });
+                    
+                    deleteStartDate.addEventListener('change', function() {
+                        deleteEndDate.min = deleteStartDate.value;
+                    });
+                });
+            }
         });
     </script>
 </body>

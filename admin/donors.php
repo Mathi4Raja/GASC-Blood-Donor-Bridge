@@ -170,6 +170,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = "New donor account created successfully for $name!";
         }
         
+        if ($action === 'edit_donor') {
+            // Handle edit existing donor
+            $donorId = intval($_POST['donor_id'] ?? 0);
+            $roll_no = sanitizeInput($_POST['roll_no'] ?? '');
+            $name = sanitizeInput($_POST['name'] ?? '');
+            $email = sanitizeInput($_POST['email'] ?? '');
+            $phone = sanitizeInput($_POST['phone'] ?? '');
+            $blood_group = sanitizeInput($_POST['blood_group'] ?? '');
+            $gender = sanitizeInput($_POST['gender'] ?? '');
+            $date_of_birth = $_POST['date_of_birth'] ?? '';
+            $class = sanitizeInput($_POST['class'] ?? '');
+            $city = sanitizeInput($_POST['city'] ?? '');
+            
+            // Validation
+            if ($donorId <= 0) {
+                throw new Exception('Invalid donor ID.');
+            }
+            
+            if (empty($roll_no) || empty($name) || empty($email) || empty($phone) || empty($blood_group) || 
+                empty($gender) || empty($date_of_birth) || empty($class) || empty($city)) {
+                throw new Exception('All fields are required.');
+            }
+            
+            if (!isValidEmail($email)) {
+                throw new Exception('Please enter a valid email address.');
+            }
+            
+            // Validate age (18-65 years)
+            $birthDate = new DateTime($date_of_birth);
+            $today = new DateTime();
+            $age = $today->diff($birthDate)->y;
+            
+            if ($age < 18) {
+                throw new Exception('Donor must be at least 18 years old.');
+            }
+            
+            if ($age > 65) {
+                throw new Exception('Donor must be under 65 years old for blood donation.');
+            }
+            
+            // Check if email already exists for another user
+            $existingUser = $db->query("SELECT id FROM users WHERE email = ? AND id != ?", [$email, $donorId]);
+            if ($existingUser->num_rows > 0) {
+                throw new Exception('An account with this email already exists.');
+            }
+            
+            // Check if roll number already exists for another user
+            $existingRollNo = $db->query("SELECT id FROM users WHERE roll_no = ? AND id != ?", [$roll_no, $donorId]);
+            if ($existingRollNo->num_rows > 0) {
+                throw new Exception('An account with this roll number already exists.');
+            }
+            
+            // Verify donor exists and is actually a donor
+            $donorCheck = $db->query("SELECT name FROM users WHERE id = ? AND user_type = 'donor'", [$donorId]);
+            if ($donorCheck->num_rows === 0) {
+                throw new Exception('Donor not found.');
+            }
+            $originalDonor = $donorCheck->fetch_assoc();
+            
+            // Update donor details
+            $updateSQL = "UPDATE users SET 
+                         roll_no = ?, name = ?, email = ?, phone = ?, blood_group = ?, 
+                         gender = ?, date_of_birth = ?, class = ?, city = ?, updated_at = NOW()
+                         WHERE id = ? AND user_type = 'donor'";
+            
+            $stmt = $db->prepare($updateSQL);
+            $stmt->bind_param('sssssssssi', 
+                $roll_no, $name, $email, $phone, $blood_group, 
+                $gender, $date_of_birth, $class, $city, $donorId
+            );
+            
+            if ($stmt->execute()) {
+                logActivity($_SESSION['user_id'], 'donor_details_updated', 
+                    "Updated donor details for: {$originalDonor['name']} (ID: $donorId)");
+                $success = "Donor details updated successfully for $name!";
+            } else {
+                throw new Exception('Failed to update donor details.');
+            }
+        }
+        
         if ($action === 'toggle_status') {
             $donorId = intval($_POST['donor_id']);
             $currentStatus = $_POST['current_status'] === 'true' ? 1 : 0;
@@ -405,7 +485,7 @@ $totalRecords = $countStmt->get_result()->fetch_assoc()['total'];
 $totalPages = ceil($totalRecords / $limit);
 
 // Get donors
-$donorsQuery = "SELECT id, roll_no, name, email, phone, gender, class, blood_group, city, 
+$donorsQuery = "SELECT id, roll_no, name, email, phone, gender, class, blood_group, city, date_of_birth,
                 last_donation_date, is_available, is_verified, is_active, email_verified, created_at,
                 CASE 
                     WHEN last_donation_date IS NULL THEN TRUE
@@ -535,6 +615,14 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
             margin-bottom: 20px;
             background: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden; /* Prevent content overflow */
+            word-wrap: break-word;
+        }
+        
+        .donor-card .small.text-muted {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
         
         .status-badge {
@@ -612,9 +700,22 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                 padding: 15px;
             }
             
+            .donor-card .small.text-muted {
+                word-break: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+            
+            .donor-card h6 {
+                word-break: break-word;
+                overflow-wrap: break-word;
+            }
+            
             .action-btn {
                 width: 100%;
                 margin-bottom: 5px;
+                font-size: 0.8rem;
+                padding: 6px 12px;
             }
             
             .donation-actions .btn {
@@ -629,6 +730,20 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
             
             .rounded-pill {
                 width: 100%;
+            }
+            
+            /* Fix for long email addresses and other text */
+            .donor-card .text-muted {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+            }
+            
+            /* Ensure badges and pills don't overflow */
+            .badge, .blood-group-badge {
+                word-break: break-word;
+                white-space: normal;
+                max-width: 100%;
             }
         }
     </style>
@@ -1071,6 +1186,22 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                                             </form>
                                         <?php endif; ?>
                                         
+                                        <button type="button" class="btn btn-warning action-btn" 
+                                                onclick="showEditDonorModal({
+                                                    id: <?php echo $donor['id']; ?>,
+                                                    name: '<?php echo addslashes($donor['name']); ?>',
+                                                    email: '<?php echo addslashes($donor['email']); ?>',
+                                                    phone: '<?php echo addslashes($donor['phone']); ?>',
+                                                    blood_group: '<?php echo addslashes($donor['blood_group']); ?>',
+                                                    gender: '<?php echo addslashes($donor['gender']); ?>',
+                                                    date_of_birth: '<?php echo $donor['date_of_birth'] ?? ''; ?>',
+                                                    class: '<?php echo addslashes($donor['class']); ?>',
+                                                    city: '<?php echo addslashes($donor['city']); ?>',
+                                                    roll_no: '<?php echo addslashes($donor['roll_no']); ?>'
+                                                })">
+                                            <i class="fas fa-edit"></i> Edit Details
+                                        </button>
+                                        
                                         <form method="POST" style="display: inline;">
                                             <input type="hidden" name="action" value="toggle_status">
                                             <input type="hidden" name="donor_id" value="<?php echo $donor['id']; ?>">
@@ -1187,6 +1318,116 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
         </div>
     </div>
 
+    <!-- Edit Donor Modal -->
+    <div class="modal fade" id="editDonorModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-edit me-2"></i>Edit Donor Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" id="editDonorForm">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="edit_donor">
+                        <input type="hidden" name="donor_id" id="editDonorId">
+                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editRollNo" class="form-label">Roll Number <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="editRollNo" name="roll_no" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editName" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="editName" name="name" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editEmail" class="form-label">Email Address <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control" id="editEmail" name="email" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editPhone" class="form-label">Phone Number <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="editPhone" name="phone" required 
+                                           pattern="^[0-9]{10}$" maxlength="10" inputmode="numeric" 
+                                           title="Enter a 10-digit phone number" 
+                                           oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editBloodGroup" class="form-label">Blood Group <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="editBloodGroup" name="blood_group" required 
+                                           placeholder="e.g., A+, O-, B+" style="text-transform: uppercase;" 
+                                           oninput="this.value = this.value.toUpperCase();">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editGender" class="form-label">Gender <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="editGender" name="gender" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editDateOfBirth" class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="editDateOfBirth" name="date_of_birth" required
+                                           max="<?php echo date('Y-m-d', strtotime('-18 years')); ?>"
+                                           min="<?php echo date('Y-m-d', strtotime('-65 years')); ?>">
+                                    <div class="form-text">Must be between 18-65 years old</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editClass" class="form-label">Class/Course <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="editClass" name="class" required 
+                                           placeholder="e.g., B.Tech CSE, M.Tech, MBA">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editCity" class="form-label">City <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="editCity" name="city" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Update Details
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/loading-manager.js"></script>
     <script>
@@ -1218,6 +1459,23 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                     document.getElementById('donationHistoryContent').innerHTML = 
                         '<div class="alert alert-danger">Error loading donation history: ' + error.message + '</div>';
                 });
+        }
+        
+        function showEditDonorModal(donorData) {
+            // Populate form fields with current donor data
+            document.getElementById('editDonorId').value = donorData.id;
+            document.getElementById('editName').value = donorData.name;
+            document.getElementById('editEmail').value = donorData.email;
+            document.getElementById('editPhone').value = donorData.phone;
+            document.getElementById('editBloodGroup').value = donorData.blood_group;
+            document.getElementById('editGender').value = donorData.gender;
+            document.getElementById('editDateOfBirth').value = donorData.date_of_birth;
+            document.getElementById('editClass').value = donorData.class;
+            document.getElementById('editCity').value = donorData.city;
+            document.getElementById('editRollNo').value = donorData.roll_no;
+            
+            // Show modal
+            new bootstrap.Modal(document.getElementById('editDonorModal')).show();
         }
         
         function updateDonationStatus(donationId, action) {
@@ -1370,63 +1628,72 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                 });
             }
             
-            // Age validation for date of birth
+            // Age validation for date of birth (Add donor form)
             const dobField = document.getElementById('date_of_birth');
             if (dobField) {
-                // Calculate and set dynamic min/max dates
-                const today = new Date();
-                const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
-                const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                addDateValidation(dobField);
+            }
+        }
+        
+        // Edit Donor Form Validation
+        const editDobField = document.getElementById('editDateOfBirth');
+        if (editDobField) {
+            addDateValidation(editDobField);
+        }
+        
+        // Shared date validation function
+        function addDateValidation(dobField) {
+            // Calculate and set dynamic min/max dates
+            const today = new Date();
+            const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
+            const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+            
+            dobField.setAttribute('min', minDate.toISOString().split('T')[0]);
+            dobField.setAttribute('max', maxDate.toISOString().split('T')[0]);
+            
+            dobField.addEventListener('change', function() {
+                const selectedDate = new Date(this.value);
+                const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
                 
-                dobField.setAttribute('min', minDate.toISOString().split('T')[0]);
-                dobField.setAttribute('max', maxDate.toISOString().split('T')[0]);
-                
-                dobField.addEventListener('change', function() {
+                if (age < 18) {
+                    this.setCustomValidity('Donor must be at least 18 years old');
+                    this.classList.add('is-invalid');
+                } else if (age > 65) {
+                    this.setCustomValidity('Donor must be under 65 years old');
+                    this.classList.add('is-invalid');
+                } else {
+                    this.setCustomValidity('');
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+            
+            // Real-time validation as user types or changes date
+            dobField.addEventListener('input', function() {
+                if (this.value) {
                     const selectedDate = new Date(this.value);
                     const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
                     
-                    if (age < 18) {
-                        this.setCustomValidity('Donor must be at least 18 years old');
+                    if (age < 18 || age > 65) {
                         this.classList.add('is-invalid');
-                    } else if (age > 65) {
-                        this.setCustomValidity('Donor must be under 65 years old');
-                        this.classList.add('is-invalid');
+                        this.classList.remove('is-valid');
                     } else {
-                        this.setCustomValidity('');
                         this.classList.remove('is-invalid');
                         this.classList.add('is-valid');
                     }
-                });
-                
-                // Real-time validation as user types or changes date
-                dobField.addEventListener('input', function() {
-                    if (this.value) {
-                        const selectedDate = new Date(this.value);
-                        const age = Math.floor((today - selectedDate) / (365.25 * 24 * 60 * 60 * 1000));
-                        
-                        if (age < 18 || age > 65) {
-                            this.classList.add('is-invalid');
-                            this.classList.remove('is-valid');
-                        } else {
-                            this.classList.remove('is-invalid');
-                            this.classList.add('is-valid');
-                        }
-                    }
-                });
-            }
-            
-            // Roll number validation
-            const rollNoField = document.getElementById('roll_no');
-            if (rollNoField) {
-                rollNoField.addEventListener('input', function() {
-                    const rollNo = this.value.trim();
-                    if (rollNo.length < 3) {
-                        this.setCustomValidity('Roll number must be at least 3 characters long');
-                    } else {
-                        this.setCustomValidity('');
-                    }
-                });
-            }
+                }
+            });
+        }
+        
+        // Edit form submission confirmation
+        const editDonorForm = document.getElementById('editDonorForm');
+        if (editDonorForm) {
+            editDonorForm.addEventListener('submit', function(e) {
+                if (!confirm('Are you sure you want to update this donor\'s details?')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
         }
     </script>
 </body>

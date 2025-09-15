@@ -305,6 +305,21 @@ $recentActions = $db->query("
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 0.8rem;
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
+        
+        /* General text overflow protection */
+        .log-entry .text-muted,
+        .log-entry small {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+        
+        .log-entry .flex-grow-1 {
+            min-width: 0; /* Allow flex item to shrink below its content size */
+            overflow: hidden;
         }
         
         .rounded-pill {
@@ -322,6 +337,40 @@ $recentActions = $db->query("
                 padding: 10px;
             }
             
+            .log-entry .d-flex {
+                flex-direction: column;
+            }
+            
+            .log-entry .text-end {
+                text-align: left !important;
+                margin-top: 10px;
+                margin-left: 0 !important;
+            }
+            
+            .log-entry .flex-grow-1 {
+                width: 100%;
+                min-width: 0; /* Allow shrinking */
+            }
+            
+            .log-entry .text-muted.small {
+                word-wrap: break-word;
+                word-break: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+                max-width: 100%;
+            }
+            
+            .ip-address {
+                font-size: 0.7rem;
+                word-break: break-all;
+                max-width: 100%;
+            }
+            
+            .action-badge {
+                font-size: 0.65rem;
+                padding: 3px 6px;
+            }
+            
             .d-flex.gap-2 {
                 flex-direction: column;
                 gap: 0.5rem !important;
@@ -329,6 +378,24 @@ $recentActions = $db->query("
             
             .rounded-pill {
                 width: 100%;
+            }
+            
+            /* Fix for long email addresses and user names */
+            .log-entry small.text-muted {
+                word-break: break-all;
+                overflow-wrap: break-word;
+            }
+            
+            /* Ensure badges don't overflow */
+            .badge {
+                word-break: break-word;
+                white-space: normal;
+            }
+            
+            /* Fix for action badges container */
+            .d-flex.align-items-center {
+                flex-wrap: wrap;
+                gap: 0.25rem;
             }
         }
     </style>

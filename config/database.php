@@ -3,7 +3,7 @@
 // Compatible with PHP 7.2 and MySQL 5.7+
 
 // Set timezone to IST for consistent timestamps across the entire system
-date_default_timezone_set('Asia/Kolkata');
+require_once __DIR__ . '/timezone.php';
 
 // Load environment configuration
 require_once __DIR__ . '/env.php';
@@ -191,17 +191,8 @@ function verifyCSRFToken($token) {
 // Session management
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
-        // Get session timeout from system settings (default 30 minutes if not available)
-        $sessionTimeoutMinutes = 30;
-        if (class_exists('SystemSettings')) {
-            try {
-                $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
-            } catch (Exception $e) {
-                // Fallback to default if settings not available
-                $sessionTimeoutMinutes = 30;
-            }
-        }
-        $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
+        // Fixed session timeout: 10 minutes
+        $sessionTimeoutSeconds = 10 * 60;
         
         // Secure session configuration
         ini_set('session.cookie_httponly', 1);
@@ -252,8 +243,8 @@ if (!function_exists('checkSessionTimeout')) {
         
         // Check timeout based on last activity
         if (isset($_SESSION['last_activity'])) {
-            $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
-            $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
+            // Fixed session timeout: 10 minutes
+            $sessionTimeoutSeconds = 10 * 60;
             $timeSinceActivity = time() - $_SESSION['last_activity'];
             
             if ($timeSinceActivity > $sessionTimeoutSeconds) {
@@ -781,7 +772,7 @@ function getNextAutomaticBackupDate() {
         $lastBackupTime = strtotime($lastBackup);
         $nextBackupTime = $lastBackupTime + ($intervalYears * 365.25 * 24 * 60 * 60);
         
-        return date('Y-m-d H:i:s', $nextBackupTime);
+        return formatISTDateTime(date('Y-m-d H:i:s', $nextBackupTime), 'M j, Y h:i A');
     } catch (Exception $e) {
         return 'Error calculating date: ' . $e->getMessage();
     }

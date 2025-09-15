@@ -118,13 +118,6 @@ class SystemSettings {
         return self::get('max_login_attempts', 5);
     }
     
-    /**
-     * Get session timeout in minutes
-     */
-    public static function getSessionTimeoutMinutes() {
-        return self::get('session_timeout_minutes', 30);
-    }
-    
     // ========== NOTIFICATIONS ==========
     
     /**

@@ -319,7 +319,7 @@ $stats = $db->query($statsQuery, [$requestorEmail])->fetch_assoc();
                                 <div class="mt-2 pt-2 border-top">
                                     <small class="text-warning">
                                         <i class="fas fa-clock me-1"></i>
-                                        Expires: <?php echo date('M d, Y H:i', strtotime($request['expires_at'])); ?>
+                                        Expires: <?php echo formatISTDateTime($request['expires_at'], 'M d, Y h:i A'); ?>
                                     </small>
                                 </div>
                             <?php endif; ?>

@@ -1,4 +1,7 @@
 <?php
+// Set timezone first before any other operations
+require_once '../config/timezone.php';
+
 session_start();
 ?>
 <!DOCTYPE html>

@@ -5,23 +5,13 @@
  */
 
 // Set timezone to IST for consistent timestamps
-date_default_timezone_set('Asia/Kolkata');
+require_once __DIR__ . '/timezone.php';
 
 if (!function_exists('initSecureSession')) {
     function initSecureSession() {
         if (session_status() === PHP_SESSION_NONE) {
-            // Get session timeout from system settings (default 30 minutes if not available)
-            $sessionTimeoutMinutes = 30;
-            if (class_exists('SystemSettings')) {
-                try {
-                    $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
-                } catch (Exception $e) {
-                    // Fallback to default if settings not available
-                    $sessionTimeoutMinutes = 30;
-                }
-            }
-            
-            $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
+            // Fixed session timeout: 10 minutes
+            $sessionTimeoutSeconds = 10 * 60;
             
             // Secure session configuration
             ini_set('session.cookie_httponly', 1);
@@ -74,17 +64,8 @@ if (!function_exists('checkSessionTimeout')) {
         
         // Check timeout based on last activity
         if (isset($_SESSION['last_activity'])) {
-            // Get session timeout from system settings (default 30 minutes if not available)
-            $sessionTimeoutMinutes = 30;
-            if (class_exists('SystemSettings')) {
-                try {
-                    $sessionTimeoutMinutes = SystemSettings::getSessionTimeoutMinutes();
-                } catch (Exception $e) {
-                    // Fallback to default if settings not available
-                    $sessionTimeoutMinutes = 30;
-                }
-            }
-            $sessionTimeoutSeconds = $sessionTimeoutMinutes * 60;
+            // Fixed session timeout: 10 minutes
+            $sessionTimeoutSeconds = 10 * 60;
             $timeSinceActivity = time() - $_SESSION['last_activity'];
             
             if ($timeSinceActivity > $sessionTimeoutSeconds) {

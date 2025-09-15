@@ -30,6 +30,9 @@
         }
     </style>
 <?php
+// Set timezone first before any other operations
+require_once '../config/timezone.php';
+
 require_once '../config/database.php';
 
 // Redirect if already logged in

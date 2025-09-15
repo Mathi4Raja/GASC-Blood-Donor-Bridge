@@ -111,9 +111,33 @@ $totalPages = ceil($totalRequests / $limit);
             border-color: #dc2626;
         }
 
+        /* Fix for filter badge overflow */
+        .filter-card .badge {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+
         @media (max-width: 767.98px) {
             .requests-header { padding-top: 60px; }
             .container.mt-4 { margin-top: 1rem !important; padding-top: 20px; }
+            
+            /* Ensure badge text wraps properly on mobile */
+            .filter-card .badge {
+                font-size: 0.8rem;
+                max-width: 100%;
+                display: inline-block;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .filter-card .badge {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.6rem;
+            }
         }
     </style>
 </head>
@@ -159,17 +183,18 @@ $totalPages = ceil($totalRequests / $limit);
         <!-- Filter Section -->
         <div class="filter-card">
             <div class="card-body">
-                <div class="row align-items-center mb-3">
-                    <div class="col">
-                        <h5 class="card-title mb-0">
+                <!-- Info badge - Full width on mobile, auto on desktop -->
+                <div class="mb-3">
+                    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between">
+                        <h5 class="card-title mb-2 mb-sm-0">
                             <i class="fas fa-filter me-2"></i>Filter Requests
                         </h5>
-                    </div>
-                    <div class="col-auto">
-                        <span class="badge bg-danger">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Showing only <?php echo htmlspecialchars($donor['blood_group']); ?> blood group requests
-                        </span>
+                        <div class="flex-shrink-0">
+                            <span class="badge bg-danger text-wrap" style="max-width: 100%;">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Showing only <?php echo htmlspecialchars($donor['blood_group']); ?> blood group requests
+                            </span>
+                        </div>
                     </div>
                 </div>
                 

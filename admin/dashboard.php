@@ -1,8 +1,7 @@
 <?php
 // Set timezone for consistent dashboard timestamps
-date_default_timezone_set('Asia/Kolkata');
-?>
-<?php
+require_once '../config/timezone.php';
+
 require_once '../config/database.php';
 
 // Check if user is logged in as admin or moderator
@@ -730,6 +729,7 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/timezone-utils.js"></script>
     
     <!-- Enhanced Page Loader -->
     <div class="loader-overlay" id="pageLoader">
@@ -754,14 +754,13 @@ try {
                 location.reload();
             }, 300000);
             
-            // Real-time clock
+            // Real-time clock in IST (12-hour format)
             function updateClock() {
-                const now = new Date();
-                const timeString = now.toLocaleString();
+                const istTime = ISTUtils.formatISTDate(new Date(), 'datetime');
                 // Update clock if element exists
                 const clockElement = document.getElementById('currentTime');
                 if (clockElement) {
-                    clockElement.textContent = timeString;
+                    clockElement.textContent = istTime + ' IST';
                 }
             }
             

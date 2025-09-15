@@ -197,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             display: flex;
             align-items: center;
+            justify-content: center;
             padding: 2rem 1rem;
         }
         
@@ -206,8 +207,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
             max-width: 900px;
-            margin: 0 auto;
             width: 100%;
+            margin: 0 auto;
         }
         
         body {
@@ -263,9 +264,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         /* Mobile responsive urgency cards */
         @media (max-width: 768px) {
             .request-container {
-                padding: 1rem 0.5rem;
+                padding: 1rem;
                 align-items: flex-start;
                 min-height: auto;
+                justify-content: center;
+            }
+            
+            .request-card {
+                margin: 0;
+                max-width: 100%;
             }
             
             .request-header {
@@ -285,11 +292,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 padding: 0.875rem;
                 font-size: 0.85rem;
             }
+            
+            .blood-group-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
         
         @media (max-width: 576px) {
             .request-container {
-                padding: 0.5rem 0.25rem;
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .request-card {
+                border-radius: 8px;
             }
             
             .request-header {
@@ -303,6 +318,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .urgency-card label {
                 padding: 0.75rem;
                 font-size: 0.8rem;
+            }
+            
+            .p-4 {
+                padding: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .request-container {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .request-card {
+                border-radius: 6px;
+            }
+            
+            .p-4 {
+                padding: 0.75rem !important;
             }
         }
         
@@ -388,13 +421,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="request-container">
-        <div class="container">
-            <div class="request-card">
-                <div style="position: relative;">
-                    <a href="../index.php" class="back-home-btn-card position-absolute top-0 start-0 mt-3 ms-3 text-decoration-none" style="z-index:1050;">
-                        <i class="fas fa-arrow-left"></i>
-                    </a>
-                </div>
+        <div class="request-card">
+            <div style="position: relative;">
+                <a href="../index.php" class="back-home-btn-card position-absolute top-0 start-0 mt-3 ms-3 text-decoration-none" style="z-index:1050;">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
         <style>
             .back-home-btn-card {
                 background: #fff;
@@ -622,7 +654,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
         </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
