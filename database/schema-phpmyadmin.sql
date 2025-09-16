@@ -137,7 +137,6 @@ INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('max_login_attempts', '5', 'Maximum login attempts before lockout'),
 ('session_timeout_minutes', '30', 'Session timeout in minutes'),
 ('email_notifications', '1', 'Enable email notifications'),
-('sms_notifications', '0', 'Enable SMS notifications (In Development)'),
 ('auto_expire_requests', '1', 'Auto-expire old requests'),
 ('require_email_verification', '1', 'Require email verification for new accounts'),
 ('allow_registrations', '1', 'Allow new user registrations');

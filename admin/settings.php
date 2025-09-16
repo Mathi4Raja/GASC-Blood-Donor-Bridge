@@ -23,7 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'max_requests_per_user' => (int)($_POST['max_requests_per_user'] ?? 5),
                 'max_login_attempts' => (int)($_POST['max_login_attempts'] ?? 5),
                 'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
-                'sms_notifications' => isset($_POST['sms_notifications']) ? 1 : 0,
                 'auto_expire_requests' => isset($_POST['auto_expire_requests']) ? 1 : 0,
                 'require_email_verification' => isset($_POST['require_email_verification']) ? 1 : 0,
                 'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0,
@@ -268,7 +267,6 @@ $defaults = [
     'max_requests_per_user' => 5,
     'max_login_attempts' => 5,
     'email_notifications' => 1,
-    'sms_notifications' => 0,
     'auto_expire_requests' => 1,
     'require_email_verification' => 1,
     'allow_registrations' => 1
@@ -761,16 +759,6 @@ if (is_dir('../database/')) {
                                             </div>
                                             <div class="feature-item">
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="sms_notifications" name="sms_notifications"
-                                                           <?php echo $currentSettings['sms_notifications'] ? 'checked' : ''; ?> disabled>
-                                                    <label class="form-check-label" for="sms_notifications">
-                                                        <i class="fas fa-sms me-2 text-secondary"></i>SMS Notifications
-                                                        <small class="text-muted d-block">(In Development)</small>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div class="feature-item">
-                                                <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox" id="require_email_verification" name="require_email_verification"
                                                            <?php echo $currentSettings['require_email_verification'] ? 'checked' : ''; ?>>
                                                     <label class="form-check-label" for="require_email_verification">
@@ -802,7 +790,6 @@ if (is_dir('../database/')) {
                                                            <?php echo SystemSettings::get('auto_backup_enabled', 1) ? 'checked' : ''; ?>>
                                                     <label class="form-check-label" for="auto_backup_enabled">
                                                         <i class="fas fa-database me-2 text-info"></i>Automatic Backup
-                                                        <small class="text-muted d-block">Every <?php echo SystemSettings::get('auto_backup_interval_years', 3); ?> years</small>
                                                     </label>
                                                 </div>
                                             </div>

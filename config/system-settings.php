@@ -127,13 +127,6 @@ class SystemSettings {
         return (bool) self::get('email_notifications', 1);
     }
     
-    /**
-     * Check if SMS notifications are enabled
-     */
-    public static function isSmsNotificationsEnabled() {
-        return (bool) self::get('sms_notifications', 0);
-    }
-    
     // ========== SYSTEM CONTROLS ==========
     
     /**
