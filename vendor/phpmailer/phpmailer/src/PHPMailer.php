@@ -768,7 +768,7 @@ class PHPMailer
      *
      * @var string
      */
-    const VERSION = '6.10.0';
+    const VERSION = '6.12.0';
 
     /**
      * Error severity: message only, continue processing.
@@ -1334,10 +1334,6 @@ class PHPMailer
      */
     public function setFrom($address, $name = '', $auto = true)
     {
-        if (is_null($name)) {
-            //Helps avoid a deprecation warning in the preg_replace() below
-            $name = '';
-        }
         $address = trim((string)$address);
         $name = trim(preg_replace('/[\r\n]+/', '', $name)); //Strip breaks and trim
         //Don't validate now addresses with IDN. Will be done in send().

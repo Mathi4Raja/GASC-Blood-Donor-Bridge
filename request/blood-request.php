@@ -546,10 +546,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label for="blood_group" class="form-label">
                                     <i class="fas fa-tint text-danger me-1"></i>Blood Group Required *
                                 </label>
-                                <input type="text" class="form-control" id="blood_group" name="blood_group" 
-                                       value="<?php echo $bloodGroup ?? ''; ?>" required
-                                       placeholder="e.g., A+, O-, B+">
-                                <div class="invalid-feedback">Please provide your blood group (e.g., A+, O-, B+).</div>
+                                <select class="form-select" id="blood_group" name="blood_group" required>
+                                    <option value="">Select Blood Group Needed</option>
+                                    
+                                    <!-- Standard ABO/Rh Blood Groups -->
+                                    <optgroup label="Standard Blood Groups">
+                                        <option value="O-" <?php echo ($bloodGroup ?? '') === 'O-' ? 'selected' : ''; ?>>O- (Universal Donor)</option>
+                                        <option value="O+" <?php echo ($bloodGroup ?? '') === 'O+' ? 'selected' : ''; ?>>O+ (Most Common)</option>
+                                        <option value="A-" <?php echo ($bloodGroup ?? '') === 'A-' ? 'selected' : ''; ?>>A-</option>
+                                        <option value="A+" <?php echo ($bloodGroup ?? '') === 'A+' ? 'selected' : ''; ?>>A+</option>
+                                        <option value="B-" <?php echo ($bloodGroup ?? '') === 'B-' ? 'selected' : ''; ?>>B-</option>
+                                        <option value="B+" <?php echo ($bloodGroup ?? '') === 'B+' ? 'selected' : ''; ?>>B+</option>
+                                        <option value="AB-" <?php echo ($bloodGroup ?? '') === 'AB-' ? 'selected' : ''; ?>>AB-</option>
+                                        <option value="AB+" <?php echo ($bloodGroup ?? '') === 'AB+' ? 'selected' : ''; ?>>AB+ (Universal Recipient)</option>
+                                    </optgroup>
+                                    
+                                    <!-- Extended ABO Subtypes -->
+                                    <optgroup label="ABO Subtypes (If Specifically Required)">
+                                        <option value="A1-" <?php echo ($bloodGroup ?? '') === 'A1-' ? 'selected' : ''; ?>>A1- (A1 Subtype)</option>
+                                        <option value="A1+" <?php echo ($bloodGroup ?? '') === 'A1+' ? 'selected' : ''; ?>>A1+ (A1 Subtype)</option>
+                                        <option value="A2-" <?php echo ($bloodGroup ?? '') === 'A2-' ? 'selected' : ''; ?>>A2- (A2 Subtype)</option>
+                                        <option value="A2+" <?php echo ($bloodGroup ?? '') === 'A2+' ? 'selected' : ''; ?>>A2+ (A2 Subtype)</option>
+                                        <option value="A1B-" <?php echo ($bloodGroup ?? '') === 'A1B-' ? 'selected' : ''; ?>>A1B- (A1B Subtype)</option>
+                                        <option value="A1B+" <?php echo ($bloodGroup ?? '') === 'A1B+' ? 'selected' : ''; ?>>A1B+ (A1B Subtype)</option>
+                                        <option value="A2B-" <?php echo ($bloodGroup ?? '') === 'A2B-' ? 'selected' : ''; ?>>A2B- (A2B Subtype)</option>
+                                        <option value="A2B+" <?php echo ($bloodGroup ?? '') === 'A2B+' ? 'selected' : ''; ?>>A2B+ (A2B Subtype)</option>
+                                    </optgroup>
+                                </select>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle text-info"></i>
+                                    Choose standard groups for general requests. Select subtypes only if specifically required by medical staff.
+                                </div>
+                                <div class="invalid-feedback">Please select the required blood group.</div>
                             </div>
                             
                             <div class="col-md-6 mb-3">

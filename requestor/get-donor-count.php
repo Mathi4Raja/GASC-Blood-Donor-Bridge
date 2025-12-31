@@ -20,6 +20,7 @@ if (!isset($_SESSION['requestor_email'])) {
 
 // Now safely connect to database
 require_once '../config/database.php';
+require_once '../config/system-settings.php';
 
 try {
     // Get JSON input
@@ -31,23 +32,74 @@ try {
     }
     
     $bloodGroup = $input['blood_group'];
+    $city = $input['city'] ?? '';
     
-    // Get current donor count for the blood group
+    // Get compatible donor count using the new compatibility system
     $db = new Database();
-    $query = "SELECT COUNT(*) as donor_count FROM users 
-              WHERE blood_group = ? 
-              AND is_available = TRUE 
-              AND is_verified = TRUE 
-              AND is_active = TRUE 
-              AND user_type = 'donor'";
     
-    $result = $db->query($query, [$bloodGroup]);
-    $donorData = $result->fetch_assoc();
+    if (!empty($city)) {
+        // Use the new compatibility function that considers city
+        $donorCount = getCompatibleDonorsCount($bloodGroup, $city);
+    } else {
+        // Get compatible donor blood groups
+        $compatibleDonorGroups = getCompatibleDonors($bloodGroup);
+        
+        if (empty($compatibleDonorGroups)) {
+            $donorCount = 0;
+        } else {
+            // Create placeholders for the IN clause
+            $placeholders = str_repeat('?,', count($compatibleDonorGroups) - 1) . '?';
+            
+            $query = "SELECT COUNT(*) as donor_count FROM users 
+                      WHERE blood_group IN ($placeholders)
+                      AND is_available = TRUE 
+                      AND is_verified = TRUE 
+                      AND is_active = TRUE 
+                      AND email_verified = TRUE
+                      AND user_type = 'donor'";
+            
+            $result = $db->query($query, $compatibleDonorGroups);
+            $donorData = $result->fetch_assoc();
+            $donorCount = (int)$donorData['donor_count'];
+        }
+    }
+    
+    // Get breakdown by compatible blood types for detailed info
+    $compatibleGroups = getCompatibleDonors($bloodGroup);
+    $breakdown = [];
+    
+    foreach ($compatibleGroups as $compatibleGroup) {
+        $query = "SELECT COUNT(*) as count FROM users 
+                  WHERE blood_group = ? 
+                  AND is_available = TRUE 
+                  AND is_verified = TRUE 
+                  AND is_active = TRUE 
+                  AND email_verified = TRUE
+                  AND user_type = 'donor'";
+        
+        if (!empty($city)) {
+            $query .= " AND city = ?";
+            $result = $db->query($query, [$compatibleGroup, $city]);
+        } else {
+            $result = $db->query($query, [$compatibleGroup]);
+        }
+        
+        $groupData = $result->fetch_assoc();
+        if ((int)$groupData['count'] > 0) {
+            $breakdown[$compatibleGroup] = (int)$groupData['count'];
+        }
+    }
     
     echo json_encode([
         'success' => true,
-        'donor_count' => (int)$donorData['donor_count'],
-        'blood_group' => $bloodGroup
+        'donor_count' => $donorCount,
+        'blood_group' => $bloodGroup,
+        'city' => $city,
+        'compatible_groups' => $compatibleGroups,
+        'breakdown' => $breakdown,
+        'display_name' => getBloodGroupDisplayName($bloodGroup),
+        'matching_mode' => SystemSettings::getBloodMatchingMode(),
+        'matching_info' => SystemSettings::getBloodMatchingHelpText()
     ]);
     
 } catch (Exception $e) {

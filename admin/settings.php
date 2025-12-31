@@ -2,6 +2,7 @@
 require_once '../config/database.php';
 require_once '../config/email.php';
 require_once '../config/env.php';
+require_once '../config/system-settings.php';
 
 // Check if user is logged in as admin
 requireRole(['admin']);
@@ -26,7 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'auto_expire_requests' => isset($_POST['auto_expire_requests']) ? 1 : 0,
                 'require_email_verification' => isset($_POST['require_email_verification']) ? 1 : 0,
                 'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0,
-                'auto_backup_enabled' => isset($_POST['auto_backup_enabled']) ? 1 : 0
+                'auto_backup_enabled' => isset($_POST['auto_backup_enabled']) ? 1 : 0,
+                'blood_matching_mode' => $_POST['blood_matching_mode'] ?? 'acceptable',
+                'blood_subtype_awareness' => isset($_POST['blood_subtype_awareness']) ? 1 : 0
             ];
             
             foreach ($settings as $key => $value) {
@@ -791,6 +794,69 @@ if (is_dir('../database/')) {
                                                     <label class="form-check-label" for="auto_backup_enabled">
                                                         <i class="fas fa-database me-2 text-info"></i>Automatic Backup
                                                     </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="blood_subtype_awareness" name="blood_subtype_awareness"
+                                                           <?php echo SystemSettings::get('blood_subtype_awareness', 1) ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="blood_subtype_awareness">
+                                                        <i class="fas fa-dna me-2 text-danger"></i>Blood Subtype Awareness
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="settings-section">
+                                        <h6 class="text-primary mb-4">
+                                            <i class="fas fa-tint me-2"></i>Blood Matching Settings
+                                        </h6>
+                                        
+                                        <div class="mb-4">
+                                            <label class="form-label fw-semibold">Blood Group Matching Mode</label>
+                                            <div class="card border-0 bg-light p-3">
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="blood_matching_mode" id="blood_matching_acceptable" 
+                                                                   value="acceptable" <?php echo SystemSettings::get('blood_matching_mode', 'acceptable') === 'acceptable' ? 'checked' : ''; ?>>
+                                                            <label class="form-check-label" for="blood_matching_acceptable">
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fas fa-users text-success me-2"></i>
+                                                                    <div>
+                                                                        <div class="fw-bold text-success">Acceptable Matches</div>
+                                                                        <small class="text-muted">Show compatible blood groups<br>(e.g., O- can donate to all groups)</small>
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="blood_matching_mode" id="blood_matching_perfect" 
+                                                                   value="perfect" <?php echo SystemSettings::get('blood_matching_mode', 'acceptable') === 'perfect' ? 'checked' : ''; ?>>
+                                                            <label class="form-check-label" for="blood_matching_perfect">
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fas fa-bullseye text-warning me-2"></i>
+                                                                    <div>
+                                                                        <div class="fw-bold text-warning">Perfect Matches Only</div>
+                                                                        <small class="text-muted">Show exact blood group only<br>(e.g., O+ donors for O+ requests only)</small>
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mt-3 p-2 bg-white rounded">
+                                                    <div class="small text-muted">
+                                                        <strong>ℹ️ How this affects the system:</strong>
+                                                        <ul class="mb-0 mt-1">
+                                                            <li><strong>Acceptable Matches:</strong> A request for A+ blood will show O-, O+, A-, and A+ donors</li>
+                                                            <li><strong>Perfect Matches:</strong> A request for A+ blood will only show A+ donors</li>
+                                                        </ul>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

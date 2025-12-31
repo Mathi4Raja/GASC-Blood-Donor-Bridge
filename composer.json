@@ -12,7 +12,8 @@
     ],
     "require": {
         "php": ">=7.2",
-        "phpmailer/phpmailer": "^6.8"
+        "phpmailer/phpmailer": "^6.8",
+        "ifsnop/mysqldump-php": "^2.9"
     },
     "require-dev": {
         "php": ">=7.2"

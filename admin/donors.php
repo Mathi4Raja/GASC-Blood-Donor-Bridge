@@ -585,7 +585,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 
 // Get blood groups for filter
-$bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+$bloodGroups = [
+    // Standard ABO/Rh groups
+    'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+',
+    // Extended ABO subtype groups
+    'A1-', 'A1+', 'A2-', 'A2+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'
+];
 
 // Get donor statistics
 $stats = [];
@@ -895,7 +900,33 @@ $stats['can_donate'] = $db->query("SELECT COUNT(*) as count FROM users WHERE use
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="blood_group" class="form-label">Blood Group <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="blood_group" name="blood_group" required placeholder="e.g., A+, O-, B+" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase();">
+                                        <select class="form-select" id="blood_group" name="blood_group" required>
+                                            <option value="">Select Blood Group</option>
+                                            
+                                            <!-- Standard ABO/Rh Blood Groups -->
+                                            <optgroup label="Standard Blood Groups">
+                                                <option value="O-">O- (Universal Donor)</option>
+                                                <option value="O+">O+ (Most Common)</option>
+                                                <option value="A-">A-</option>
+                                                <option value="A+">A+</option>
+                                                <option value="B-">B-</option>
+                                                <option value="B+">B+</option>
+                                                <option value="AB-">AB-</option>
+                                                <option value="AB+">AB+ (Universal Recipient)</option>
+                                            </optgroup>
+                                            
+                                            <!-- Extended ABO Subtypes -->
+                                            <optgroup label="ABO Subtypes">
+                                                <option value="A1-">A1- (A1 Subtype)</option>
+                                                <option value="A1+">A1+ (A1 Subtype)</option>
+                                                <option value="A2-">A2- (A2 Subtype)</option>
+                                                <option value="A2+">A2+ (A2 Subtype)</option>
+                                                <option value="A1B-">A1B- (A1B Subtype)</option>
+                                                <option value="A1B+">A1B+ (A1B Subtype)</option>
+                                                <option value="A2B-">A2B- (A2B Subtype)</option>
+                                                <option value="A2B+">A2B+ (A2B Subtype)</option>
+                                            </optgroup>
+                                        </select>
                                     </div>
                                 </div>
                             </div>

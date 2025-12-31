@@ -150,6 +150,57 @@ class SystemSettings {
         return (bool) self::get('allow_registrations', 1);
     }
     
+    // ========== BLOOD MATCHING SETTINGS ==========
+    
+    /**
+     * Get blood matching mode
+     * @return string 'perfect' for exact matches only, 'acceptable' for compatible matches
+     */
+    public static function getBloodMatchingMode() {
+        return self::get('blood_matching_mode', 'acceptable');
+    }
+    
+    /**
+     * Check if strict blood matching is enabled (perfect match only)
+     */
+    public static function isStrictBloodMatchingEnabled() {
+        return (bool) self::get('strict_blood_matching', 0);
+    }
+    
+    /**
+     * Check if blood subtype awareness is enabled
+     */
+    public static function isBloodSubtypeAwarenessEnabled() {
+        return (bool) self::get('blood_subtype_awareness', 1);
+    }
+    
+    /**
+     * Get blood matching help text
+     */
+    public static function getBloodMatchingHelpText() {
+        return self::get('blood_matching_help_text', 'Perfect Match: Only donors with exact blood group. Acceptable Match: Donors with compatible blood groups.');
+    }
+    
+    /**
+     * Set blood matching mode
+     * @param string $mode 'perfect' or 'acceptable'
+     * @return bool Success status
+     */
+    public static function setBloodMatchingMode($mode) {
+        if (!in_array($mode, ['perfect', 'acceptable'])) {
+            return false;
+        }
+        
+        $success = self::set('blood_matching_mode', $mode);
+        
+        // Also update the strict matching flag for consistency
+        if ($success) {
+            self::set('strict_blood_matching', $mode === 'perfect' ? 1 : 0);
+        }
+        
+        return $success;
+    }
+    
     /**
      * Clear the settings cache
      */

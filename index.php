@@ -494,7 +494,7 @@ require_once 'config/system-settings.php';
             <hr class="border-secondary my-2">
             <div class="row align-items-center">
                 <div class="col-md-6 col-12 text-center text-md-start">
-                    <p class="text-light mb-0 small">© 2025 GASC Blood Bridge. All rights reserved.</p>
+                    <p class="text-light mb-0 small">© 2026 GASC Blood Bridge. All rights reserved.</p>
                 </div>
                 <div class="col-md-6 col-12 text-center text-md-end">
                     <p class="text-light mb-0 small">Made with <i class="fas fa-heart text-danger"></i> for humanity</p>

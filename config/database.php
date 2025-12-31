@@ -8,6 +8,11 @@ require_once __DIR__ . '/timezone.php';
 // Load environment configuration
 require_once __DIR__ . '/env.php';
 
+// Load Composer autoloader for third-party libraries
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
 class Database {
     private $host;
     private $username;
@@ -144,7 +149,20 @@ function isValidPhone($phone) {
 }
 
 function isValidBloodGroup($bloodGroup) {
-    $validGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    // Standard blood groups
+    $standardGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    
+    // Extended ABO subtype blood groups
+    $extendedGroups = [
+        'A1+', 'A1-',    // A1 subtypes
+        'A2+', 'A2-',    // A2 subtypes
+        'A1B+', 'A1B-',  // A1B subtypes
+        'A2B+', 'A2B-'   // A2B subtypes
+    ];
+    
+    // Combine all valid blood groups
+    $validGroups = array_merge($standardGroups, $extendedGroups);
+    
     return in_array($bloodGroup, $validGroups);
 }
 
@@ -490,7 +508,15 @@ function getRecentRequestsStats($days = 30) {
 function getBloodInventoryStats() {
     try {
         $db = new Database();
-        $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        
+        // Extended blood groups including ABO subtypes
+        $bloodGroups = [
+            // Standard ABO/Rh groups
+            'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+',
+            // Extended ABO subtype groups
+            'A1-', 'A1+', 'A2-', 'A2+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'
+        ];
+        
         $inventory = [];
         
         foreach ($bloodGroups as $bloodGroup) {
@@ -659,13 +685,130 @@ function createDatabaseBackup($type = 'manual', $dateRange = null) {
         $username = EnvLoader::get('DB_USERNAME', 'root');
         $password = EnvLoader::get('DB_PASSWORD', '');
         
+        // Try PHP-based backup first (MySQLDump-PHP library - no external dependencies)
+        if (class_exists('Ifsnop\Mysqldump\Mysqldump')) {
+            return createDatabaseBackupPHP($type, $dateRange, $host, $database, $username, $password);
+        }
+        
+        // Fallback to traditional mysqldump if library not available
+        return createDatabaseBackupTraditional($type, $dateRange, $host, $database, $username, $password);
+        
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+/**
+ * Create database backup using MySQLDump-PHP library (preferred method)
+ * No external dependencies, works on all hosting environments
+ */
+function createDatabaseBackupPHP($type, $dateRange, $host, $database, $username, $password) {
+    try {
+        // Create backup directory if it doesn't exist
+        $backupDir = __DIR__ . '/../database';
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+        
+        // Build the backup file path with date range info if provided
+        $backup_filename = 'backup_' . $type . '_' . date('Y-m-d_H-i-s');
+        if ($dateRange) {
+            $backup_filename .= '_from-' . $dateRange['start'] . '_to-' . $dateRange['end'];
+        }
+        $backup_filename .= '.sql';
+        $backup_file_full = $backupDir . DIRECTORY_SEPARATOR . $backup_filename;
+        
+        // Configure dump settings
+        $dumpSettings = [
+            'compress' => \Ifsnop\Mysqldump\Mysqldump::NONE,
+            'no-data' => false,
+            'add-drop-table' => true,
+            'single-transaction' => true,
+            'lock-tables' => false,
+            'add-locks' => true,
+            'extended-insert' => true,
+            'disable-keys' => true,
+            'skip-triggers' => false,
+            'add-drop-trigger' => true,
+            'routines' => true,
+            'hex-blob' => true
+        ];
+        
+        // Create DSN
+        $dsn = "mysql:host=$host;dbname=$database";
+        
+        // Create dump object
+        $dump = new \Ifsnop\Mysqldump\Mysqldump($dsn, $username, $password, $dumpSettings);
+        
+        // Perform backup
+        $dump->start($backup_file_full);
+        
+        // Verify backup was created
+        if (!file_exists($backup_file_full)) {
+            throw new Exception('Backup file was not created');
+        }
+        
+        $backup_content = file_get_contents($backup_file_full);
+        
+        // Validate backup content
+        if (empty($backup_content) || strlen($backup_content) < 1000 || strpos($backup_content, 'CREATE TABLE') === false) {
+            throw new Exception('Invalid backup content generated');
+        }
+        
+        // Add date range metadata if provided
+        if ($dateRange) {
+            $metadata = "\n-- BACKUP METADATA\n";
+            $metadata .= "-- Backup Type: Manual with Date Range\n";
+            $metadata .= "-- Backup Method: PHP MySQLDump Library\n";
+            $metadata .= "-- Date Range: {$dateRange['start']} to {$dateRange['end']}\n";
+            $metadata .= "-- Period: {$dateRange['start_formatted']} to {$dateRange['end_formatted']}\n";
+            $metadata .= "-- Duration: {$dateRange['duration_years']} years, {$dateRange['duration_months']} months, {$dateRange['duration_days']} days\n";
+            $metadata .= "-- Created: " . date('Y-m-d H:i:s') . "\n";
+            $metadata .= "-- Note: This is a full database backup with specified date range for reference\n\n";
+            
+            // Insert metadata after the first comment block
+            $backup_content = preg_replace('/^(-- .+?\n\n)/s', '$1' . $metadata, $backup_content, 1);
+            file_put_contents($backup_file_full, $backup_content);
+        }
+        
+        $file_size_mb = round(filesize($backup_file_full) / 1024 / 1024, 2);
+        $result = [
+            'success' => true,
+            'filename' => $backup_filename,
+            'size_mb' => $file_size_mb,
+            'type' => $type,
+            'method' => 'PHP Library'
+        ];
+        
+        // Add date range info to result
+        if ($dateRange) {
+            $result['date_range'] = $dateRange;
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        // If PHP method fails, try traditional method as fallback
+        error_log("PHP backup method failed: " . $e->getMessage() . " - Attempting traditional method");
+        return createDatabaseBackupTraditional($type, $dateRange, $host, $database, $username, $password);
+    }
+}
+
+/**
+ * Create database backup using traditional mysqldump command (fallback method)
+ * Requires mysqldump to be available on the server
+ */
+function createDatabaseBackupTraditional($type, $dateRange, $host, $database, $username, $password) {
+    try {
         // Find mysqldump
         $possible_paths = [
             'C:\\Program Files\\XAMPP\\mysql\\bin\\mysqldump.exe',
             'C:\\xampp\\mysql\\bin\\mysqldump.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysqldump.exe',
-            'C:\\wamp64\\bin\\mysql\\mysql8.0.21\\bin\\mysqldump.exe'
+            'C:\\wamp64\\bin\\mysql\\mysql8.0.21\\bin\\mysqldump.exe',
+            '/usr/bin/mysqldump', // Linux/Mac
+            '/usr/local/bin/mysqldump' // Alternative Linux/Mac
         ];
         
         $mysqldump_path = null;
@@ -677,7 +820,7 @@ function createDatabaseBackup($type = 'manual', $dateRange = null) {
         }
         
         if (!$mysqldump_path) {
-            throw new Exception("mysqldump not found in standard locations");
+            throw new Exception("mysqldump not found. Please install the MySQLDump-PHP library via Composer: composer require ifsnop/mysqldump-php");
         }
         
         // Create backup directory if it doesn't exist
@@ -721,6 +864,7 @@ function createDatabaseBackup($type = 'manual', $dateRange = null) {
             if ($dateRange) {
                 $metadata = "\n-- BACKUP METADATA\n";
                 $metadata .= "-- Backup Type: Manual with Date Range\n";
+                $metadata .= "-- Backup Method: Traditional mysqldump\n";
                 $metadata .= "-- Date Range: {$dateRange['start']} to {$dateRange['end']}\n";
                 $metadata .= "-- Period: {$dateRange['start_formatted']} to {$dateRange['end_formatted']}\n";
                 $metadata .= "-- Duration: {$dateRange['duration_years']} years, {$dateRange['duration_months']} months, {$dateRange['duration_days']} days\n";
@@ -737,7 +881,8 @@ function createDatabaseBackup($type = 'manual', $dateRange = null) {
                     'success' => true,
                     'filename' => $backup_filename,
                     'size_mb' => $file_size_mb,
-                    'type' => $type
+                    'type' => $type,
+                    'method' => 'Traditional mysqldump'
                 ];
                 
                 // Add date range info to result
@@ -775,6 +920,237 @@ function getNextAutomaticBackupDate() {
         return formatISTDateTime(date('Y-m-d H:i:s', $nextBackupTime), 'M j, Y h:i A');
     } catch (Exception $e) {
         return 'Error calculating date: ' . $e->getMessage();
+    }
+}
+
+/**
+ * Get all supported blood groups (standard + extended)
+ * @return array Array of all supported blood group types
+ */
+function getAllSupportedBloodGroups() {
+    return [
+        // Standard ABO/Rh groups (ordered by compatibility importance)
+        'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+',
+        // Extended ABO subtype groups
+        'A1-', 'A1+', 'A2-', 'A2+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'
+    ];
+}
+
+/**
+ * Get compatible donor blood groups for a given recipient blood group
+ * @param string $recipientBloodGroup The recipient's blood group
+ * @param bool $perfectMatchOnly If true, return only exact matches
+ * @return array Array of compatible donor blood groups
+ */
+function getCompatibleDonors($recipientBloodGroup, $perfectMatchOnly = null) {
+    // Check system setting if not explicitly specified
+    if ($perfectMatchOnly === null) {
+        require_once __DIR__ . '/system-settings.php';
+        $perfectMatchOnly = SystemSettings::getBloodMatchingMode() === 'perfect';
+    }
+    
+    // Perfect match mode - return only exact blood group
+    if ($perfectMatchOnly) {
+        return [$recipientBloodGroup];
+    }
+    
+    // Acceptable match mode - return compatible blood groups
+    // Comprehensive compatibility matrix including ABO subtypes
+    $compatibility = [
+        // Standard blood groups
+        'O-' => ['O-'],
+        'O+' => ['O-', 'O+'],
+        'A-' => ['O-', 'A-', 'A1-', 'A2-'],
+        'A+' => ['O-', 'O+', 'A-', 'A+', 'A1-', 'A1+', 'A2-', 'A2+'],
+        'B-' => ['O-', 'B-'],
+        'B+' => ['O-', 'O+', 'B-', 'B+'],
+        'AB-' => ['O-', 'A-', 'A1-', 'A2-', 'B-', 'AB-', 'A1B-', 'A2B-'],
+        'AB+' => ['O-', 'O+', 'A-', 'A+', 'A1-', 'A1+', 'A2-', 'A2+', 'B-', 'B+', 'AB-', 'AB+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'],
+        
+        // A1 subtypes
+        'A1-' => ['O-', 'A-', 'A1-'],
+        'A1+' => ['O-', 'O+', 'A-', 'A+', 'A1-', 'A1+'],
+        
+        // A2 subtypes
+        'A2-' => ['O-', 'A-', 'A2-'],
+        'A2+' => ['O-', 'O+', 'A-', 'A+', 'A2-', 'A2+'],
+        
+        // A1B subtypes
+        'A1B-' => ['O-', 'A-', 'A1-', 'B-', 'AB-', 'A1B-'],
+        'A1B+' => ['O-', 'O+', 'A-', 'A+', 'A1-', 'A1+', 'B-', 'B+', 'AB-', 'AB+', 'A1B-', 'A1B+'],
+        
+        // A2B subtypes
+        'A2B-' => ['O-', 'A-', 'A2-', 'B-', 'AB-', 'A2B-'],
+        'A2B+' => ['O-', 'O+', 'A-', 'A+', 'A2-', 'A2+', 'B-', 'B+', 'AB-', 'AB+', 'A2B-', 'A2B+']
+    ];
+    
+    return $compatibility[$recipientBloodGroup] ?? [$recipientBloodGroup];
+}
+
+/**
+ * Get compatible recipient blood groups for a given donor blood group
+ * @param string $donorBloodGroup The donor's blood group
+ * @param bool $perfectMatchOnly If true, return only exact matches
+ * @return array Array of compatible recipient blood groups
+ */
+function getCompatibleRecipients($donorBloodGroup, $perfectMatchOnly = null) {
+    // Check system setting if not explicitly specified
+    if ($perfectMatchOnly === null) {
+        require_once __DIR__ . '/system-settings.php';
+        $perfectMatchOnly = SystemSettings::getBloodMatchingMode() === 'perfect';
+    }
+    
+    // Perfect match mode - return only exact blood group
+    if ($perfectMatchOnly) {
+        return [$donorBloodGroup];
+    }
+    
+    // Acceptable match mode - return compatible blood groups
+    // Reverse compatibility matrix - who can receive from this donor
+    $compatibility = [
+        // Standard blood groups
+        'O-' => ['O-', 'O+', 'A-', 'A+', 'A1-', 'A1+', 'A2-', 'A2+', 'B-', 'B+', 'AB-', 'AB+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'], // Universal donor
+        'O+' => ['O+', 'A+', 'A1+', 'A2+', 'B+', 'AB+', 'A1B+', 'A2B+'],
+        'A-' => ['A-', 'A+', 'A1-', 'A1+', 'A2-', 'A2+', 'AB-', 'AB+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'],
+        'A+' => ['A+', 'A1+', 'A2+', 'AB+', 'A1B+', 'A2B+'],
+        'B-' => ['B-', 'B+', 'AB-', 'AB+', 'A1B-', 'A1B+', 'A2B-', 'A2B+'],
+        'B+' => ['B+', 'AB+', 'A1B+', 'A2B+'],
+        'AB-' => ['AB-', 'AB+'],
+        'AB+' => ['AB+'],
+        
+        // A1 subtypes (A1 can donate to A and AB recipients, but specificity matters)
+        'A1-' => ['A-', 'A+', 'A1-', 'A1+', 'AB-', 'AB+', 'A1B-', 'A1B+'],
+        'A1+' => ['A+', 'A1+', 'AB+', 'A1B+'],
+        
+        // A2 subtypes (A2 can donate to A and AB recipients)
+        'A2-' => ['A-', 'A+', 'A2-', 'A2+', 'AB-', 'AB+', 'A2B-', 'A2B+'],
+        'A2+' => ['A+', 'A2+', 'AB+', 'A2B+'],
+        
+        // A1B subtypes
+        'A1B-' => ['AB-', 'AB+', 'A1B-', 'A1B+'],
+        'A1B+' => ['AB+', 'A1B+'],
+        
+        // A2B subtypes
+        'A2B-' => ['AB-', 'AB+', 'A2B-', 'A2B+'],
+        'A2B+' => ['AB+', 'A2B+']
+    ];
+    
+    return $compatibility[$donorBloodGroup] ?? [$donorBloodGroup];
+}
+
+/**
+ * Check if a donor blood group is compatible with a recipient blood group
+ * @param string $donorBloodGroup The donor's blood group
+ * @param string $recipientBloodGroup The recipient's blood group
+ * @param bool $perfectMatchOnly If true, check only exact matches
+ * @return bool True if compatible, false otherwise
+ */
+function isBloodGroupCompatible($donorBloodGroup, $recipientBloodGroup, $perfectMatchOnly = null) {
+    // Check system setting if not explicitly specified
+    if ($perfectMatchOnly === null) {
+        require_once __DIR__ . '/system-settings.php';
+        $perfectMatchOnly = SystemSettings::getBloodMatchingMode() === 'perfect';
+    }
+    
+    // Perfect match mode - only exact matches are compatible
+    if ($perfectMatchOnly) {
+        return $donorBloodGroup === $recipientBloodGroup;
+    }
+    
+    // Acceptable match mode - check compatibility matrix
+    $compatibleRecipients = getCompatibleRecipients($donorBloodGroup, false);
+    return in_array($recipientBloodGroup, $compatibleRecipients);
+}
+
+/**
+ * Get main ABO group from extended blood group (for fallback compatibility)
+ * @param string $bloodGroup Extended blood group (e.g., A1+, A2B-)
+ * @return string Main ABO group (e.g., A+, AB-)
+ */
+function getMainBloodGroup($bloodGroup) {
+    $mapping = [
+        'A1-' => 'A-', 'A1+' => 'A+',
+        'A2-' => 'A-', 'A2+' => 'A+',
+        'A1B-' => 'AB-', 'A1B+' => 'AB+',
+        'A2B-' => 'AB-', 'A2B+' => 'AB+'
+    ];
+    
+    return $mapping[$bloodGroup] ?? $bloodGroup;
+}
+
+/**
+ * Get blood group display name with description
+ * @param string $bloodGroup Blood group code
+ * @return string Formatted display name
+ */
+function getBloodGroupDisplayName($bloodGroup) {
+    $descriptions = [
+        // Standard groups
+        'O-' => 'O- (Universal Donor)',
+        'O+' => 'O+ (Most Common)',
+        'A-' => 'A- (Standard)',
+        'A+' => 'A+ (Common)',
+        'B-' => 'B- (Standard)',
+        'B+' => 'B+ (Standard)',
+        'AB-' => 'AB- (Rare)',
+        'AB+' => 'AB+ (Universal Recipient)',
+        
+        // Extended groups
+        'A1-' => 'A1- (A1 Subtype)',
+        'A1+' => 'A1+ (A1 Subtype)',
+        'A2-' => 'A2- (A2 Subtype)',
+        'A2+' => 'A2+ (A2 Subtype)',
+        'A1B-' => 'A1B- (A1B Subtype)',
+        'A1B+' => 'A1B+ (A1B Subtype)',
+        'A2B-' => 'A2B- (A2B Subtype)',
+        'A2B+' => 'A2B+ (A2B Subtype)'
+    ];
+    
+    return $descriptions[$bloodGroup] ?? $bloodGroup;
+}
+
+/**
+ * Get available donors count for a specific blood group and city with compatibility
+ * @param string $neededBloodGroup The blood group needed
+ * @param string $city The city to search in
+ * @param bool $perfectMatchOnly If true, count only exact matches
+ * @return int Number of available compatible donors
+ */
+function getCompatibleDonorsCount($neededBloodGroup, $city, $perfectMatchOnly = null) {
+    try {
+        $db = new Database();
+        
+        // Use the updated getCompatibleDonors function with perfect match setting
+        $compatibleDonorGroups = getCompatibleDonors($neededBloodGroup, $perfectMatchOnly);
+        
+        if (empty($compatibleDonorGroups)) {
+            return 0;
+        }
+        
+        // Create placeholders for the IN clause
+        $placeholders = str_repeat('?,', count($compatibleDonorGroups) - 1) . '?';
+        
+        $sql = "SELECT COUNT(*) as count 
+                FROM users 
+                WHERE user_type = 'donor' 
+                    AND blood_group IN ($placeholders)
+                    AND city = ?
+                    AND is_available = TRUE 
+                    AND is_verified = TRUE 
+                    AND is_active = TRUE
+                    AND email_verified = TRUE";
+        
+        // Prepare parameters (blood groups + city)
+        $params = array_merge($compatibleDonorGroups, [$city]);
+        
+        $result = $db->query($sql, $params);
+        $row = $result->fetch_assoc();
+        
+        return (int)$row['count'];
+        
+    } catch (Exception $e) {
+        error_log("Error getting compatible donors count: " . $e->getMessage());
+        return 0;
     }
 }
 ?>
