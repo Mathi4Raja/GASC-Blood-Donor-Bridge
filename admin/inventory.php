@@ -8,51 +8,54 @@ $db = new Database();
 $success = '';
 $error = '';
 
-// Get blood group statistics for inventory
-$inventoryQuery = "
-    SELECT 
-        bg.blood_group,
-        COALESCE(bg.total_donors, 0) as total_donors,
-        COALESCE(bg.available_donors, 0) as available_donors,
-        COALESCE(active_requests.active_requests, 0) as active_requests,
-        COALESCE(fulfilled_requests.fulfilled_this_month, 0) as fulfilled_this_month,
-        CASE 
-            WHEN COALESCE(bg.available_donors, 0) >= COALESCE(active_requests.active_requests, 0) * 2 THEN 'Good'
-            WHEN COALESCE(bg.available_donors, 0) >= COALESCE(active_requests.active_requests, 0) THEN 'Low'
-            ELSE 'Critical'
-        END as stock_status,
-        (
-            SELECT COUNT(*) FROM users u 
-            WHERE u.blood_group = bg.blood_group 
-            AND u.user_type = 'donor' 
-            AND u.is_available = TRUE 
-            AND u.is_verified = TRUE 
-            AND u.is_active = TRUE 
-            AND (
-                u.last_donation_date IS NULL 
-                OR (u.gender = 'Female' AND DATEDIFF(CURDATE(), u.last_donation_date) >= 120)
-                OR (u.gender != 'Female' AND DATEDIFF(CURDATE(), u.last_donation_date) >= 90)
-            )
-        ) as can_donate_now
-    FROM blood_group_stats bg
-    LEFT JOIN (
-        SELECT blood_group, COUNT(*) as active_requests 
-        FROM blood_requests 
-        WHERE status = 'Active' 
-        GROUP BY blood_group
-    ) active_requests ON bg.blood_group = active_requests.blood_group
-    LEFT JOIN (
-        SELECT blood_group, COUNT(*) as fulfilled_this_month 
-        FROM blood_requests 
-        WHERE status = 'Fulfilled' 
-        AND MONTH(updated_at) = MONTH(CURRENT_DATE()) 
-        AND YEAR(updated_at) = YEAR(CURRENT_DATE())
-        GROUP BY blood_group
-    ) fulfilled_requests ON bg.blood_group = fulfilled_requests.blood_group
-    ORDER BY bg.blood_group
-";
+// Get blood group statistics for inventory using the database function
+$inventory = getBloodInventoryStats();
 
-$inventory = $db->query($inventoryQuery)->fetch_all(MYSQLI_ASSOC);
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    // Clear any output that might have been sent and stop output buffering
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    $filename = 'blood_inventory_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'Blood Group', 'Total Donors', 'Available Donors', 'Can Donate Now', 
+        'Active Requests', 'Fulfilled This Month', 'Stock Status'
+    ];
+    fputcsv($output, $headers);
+    
+    // Write data rows
+    foreach ($inventory as $item) {
+        // Clean all values to ensure no HTML or extra whitespace
+        $row = [
+            trim($item['blood_group']),
+            intval($item['total_donors']),
+            intval($item['available_donors']),
+            intval($item['can_donate_now']),
+            intval($item['active_requests']),
+            intval($item['fulfilled_this_month']),
+            trim(preg_replace('/\s+/', ' ', strip_tags($item['stock_status']))) // Clean and normalize whitespace
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'inventory_exported', "Exported blood inventory data to CSV");
+    
+    exit;
+}
 
 // Get overall statistics
 $totalDonors = $db->query("SELECT COUNT(*) as count FROM users WHERE user_type = 'donor' AND is_verified = TRUE AND is_active = TRUE")->fetch_assoc()['count'];
@@ -174,6 +177,16 @@ $cityDistribution = $db->query("
             margin: 20px 0;
         }
         
+        .rounded-pill {
+            border-radius: 50rem !important;
+            transition: all 0.3s ease;
+        }
+        
+        .rounded-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
         @media (max-width: 768px) {
             .inventory-card {
                 padding: 15px;
@@ -182,6 +195,15 @@ $cityDistribution = $db->query("
             .blood-group-header {
                 font-size: 1.2rem;
                 padding: 10px;
+            }
+            
+            .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 0.5rem !important;
+            }
+            
+            .rounded-pill {
+                width: 100%;
             }
         }
     </style>
@@ -252,18 +274,13 @@ $cityDistribution = $db->query("
                     <h1 class="h2">
                         <i class="fas fa-warehouse text-danger me-2"></i>Blood Inventory
                     </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">
-                                <i class="fas fa-sync-alt me-1"></i>Refresh
-                            </button>
-                        </div>
+                    <div class="d-flex gap-2 mb-2 mb-md-0">
+                        <button type="button" class="btn btn-success rounded-pill px-4" onclick="window.location.href='inventory.php?export=csv'">
+                            <i class="fas fa-download me-2"></i>Export CSV
+                        </button>
+                        <button type="button" class="btn btn-primary rounded-pill px-4" onclick="location.reload()">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh
+                        </button>
                     </div>
                 </div>
                 
@@ -527,32 +544,8 @@ $cityDistribution = $db->query("
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
-        function exportData() {
-            // Create CSV data for inventory
-            let csvContent = "Blood Group,Total Donors,Available Donors,Can Donate Now,Active Requests,Fulfilled This Month,Stock Status\n";
-            
-            // Get data from the page
-            const inventoryCards = document.querySelectorAll('.inventory-card');
-            inventoryCards.forEach(card => {
-                const bloodGroup = card.querySelector('.blood-group-header').textContent.trim();
-                const rows = card.querySelectorAll('.d-flex.justify-content-between');
-                const values = Array.from(rows).map(row => row.querySelector('strong').textContent.trim());
-                const stockStatus = card.querySelector('.badge').textContent.replace(' Stock', '');
-                
-                csvContent += `${bloodGroup},${values.join(',')},${stockStatus}\n`;
-            });
-            
-            // Download CSV
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'blood_inventory_' + new Date().toISOString().split('T')[0] + '.csv';
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-        
         // Auto-refresh every 5 minutes
         setInterval(function() {
             location.reload();

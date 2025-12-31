@@ -1,5 +1,6 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/site.php';
 
 // Check if user is logged in as donor
 requireRole(['donor']);
@@ -85,114 +86,95 @@ $totalPages = ceil($totalRequests / $limit);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
+    <link href="includes/sidebar.css" rel="stylesheet">
     <style>
-        .requests-header {
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            color: white;
-            padding: 2rem 0;
-        }
-        
+        /* Request list styles */
         .urgency-critical { border-left-color: #dc2626; }
         .urgency-urgent { border-left-color: #f59e0b; }
         .urgency-normal { border-left-color: #10b981; }
-        
+
         .stats-banner {
             background: rgba(255,255,255,0.1);
             border-radius: 10px;
             padding: 1rem;
             margin-top: 1rem;
         }
-        
-        .pagination .page-link {
-            color: #dc2626;
-        }
-        
+
+        .pagination .page-link { color: #dc2626; }
         .pagination .page-item.active .page-link {
             background-color: #dc2626;
             border-color: #dc2626;
         }
-        
+
         .btn-danger {
             background-color: #dc2626;
             border-color: #dc2626;
         }
-        
-        /* Mobile Navigation Styles */
-        .mobile-nav-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1050;
-            background: var(--primary-red);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 18px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+        /* Fix for filter badge overflow */
+        .filter-card .badge {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: normal;
         }
-        
-        .mobile-nav-toggle:hover {
-            background: var(--dark-red);
-            color: white;
-            transform: scale(1.05);
-        }
-        
+
         @media (max-width: 767.98px) {
-            .requests-header {
-                padding-top: 60px;
-            }
+            .requests-header { padding-top: 60px; }
+            .container.mt-4 { margin-top: 1rem !important; padding-top: 20px; }
             
-            .container.mt-4 {
-                margin-top: 1rem !important;
-                padding-top: 20px;
+            /* Ensure badge text wraps properly on mobile */
+            .filter-card .badge {
+                font-size: 0.8rem;
+                max-width: 100%;
+                display: inline-block;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .filter-card .badge {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.6rem;
             }
         }
     </style>
 </head>
 <body class="bg-light">
-    <!-- Mobile Navigation Toggle -->
-    <button class="mobile-nav-toggle d-lg-none" onclick="window.location.href='dashboard.php'">
-        <i class="fas fa-arrow-left"></i>
-    </button>
+    <?php include 'includes/sidebar.php'; ?>
     
-    <div class="requests-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h2><i class="fas fa-hand-holding-heart me-2"></i>Blood Requests</h2>
-                    <p class="mb-0">Find and respond to blood donation requests</p>
-                </div>
-                <div class="col-md-4 text-md-end">
-                    <a href="dashboard.php" class="btn btn-light">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                    </a>
-                </div>
-            </div>
-            
-            <!-- Stats Banner -->
-            <div class="stats-banner">
-                <div class="row text-center">
+    <div class="main-content">
+        <div class="container-fluid p-4">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2><i class="fas fa-hand-holding-heart me-2"></i>Blood Requests</h2>
+                <p class="text-muted mb-0">Find and respond to blood donation requests</p>
+                
+                <!-- Stats Banner -->
+                <div class="row mt-3">
                     <div class="col-md-4">
-                        <h4><?php echo $totalRequests; ?></h4>
-                        <small>Total Requests Found</small>
+                        <div class="bg-danger text-white rounded p-3 text-center">
+                            <h4 class="mb-0"><?php echo $totalRequests; ?></h4>
+                            <small>Total Requests Found</small>
+                        </div>
                     </div>
                     <div class="col-md-4">
-                        <h4><?php echo count(array_filter($bloodRequests, function($r) { return $r['urgency'] === 'Critical'; })); ?></h4>
-                        <small>Critical Cases</small>
+                        <div class="bg-warning text-white rounded p-3 text-center">
+                            <h4 class="mb-0"><?php echo count(array_filter($bloodRequests, function($r) { return $r['urgency'] === 'Critical'; })); ?></h4>
+                            <small>Critical Cases</small>
+                        </div>
                     </div>
                     <div class="col-md-4">
-                        <h4><?php echo $totalPages; ?></h4>
-                        <small>Total Pages</small>
+                        <div class="bg-info text-white rounded p-3 text-center">
+                            <h4 class="mb-0"><?php echo $totalPages; ?></h4>
+                            <small>Total Pages</small>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <div class="container mt-4">
-        <?php if ($error): ?>
+
+            <?php if ($error): ?>
             <div class="alert alert-danger">
                 <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($error); ?>
             </div>
@@ -201,17 +183,18 @@ $totalPages = ceil($totalRequests / $limit);
         <!-- Filter Section -->
         <div class="filter-card">
             <div class="card-body">
-                <div class="row align-items-center mb-3">
-                    <div class="col">
-                        <h5 class="card-title mb-0">
+                <!-- Info badge - Full width on mobile, auto on desktop -->
+                <div class="mb-3">
+                    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between">
+                        <h5 class="card-title mb-2 mb-sm-0">
                             <i class="fas fa-filter me-2"></i>Filter Requests
                         </h5>
-                    </div>
-                    <div class="col-auto">
-                        <span class="badge bg-danger">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Showing only <?php echo htmlspecialchars($donor['blood_group']); ?> blood group requests
-                        </span>
+                        <div class="flex-shrink-0">
+                            <span class="badge bg-danger text-wrap" style="max-width: 100%;">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Showing only <?php echo htmlspecialchars($donor['blood_group']); ?> blood group requests
+                            </span>
+                        </div>
                     </div>
                 </div>
                 
@@ -351,18 +334,20 @@ $totalPages = ceil($totalRequests / $limit);
             </div>
         </div>
     </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function shareRequest(requestId, requesterName, bloodGroup) {
             const shareData = {
                 title: 'Urgent Blood Donation Request',
                 text: `${requesterName} urgently needs ${bloodGroup} blood. Please help save a life!`,
-                url: window.location.origin + '/GASC Blood Donor Bridge/request/blood-request.php?id=' + requestId
+                url: window.location.origin + '<?php echo sitePath("request/blood-request.php"); ?>?id=' + requestId
             };
             
             if (navigator.share) {
-                navigator.share(shareData).catch(err => console.log('Error sharing:', err));
+                navigator.share(shareData).catch(err => {});
             } else {
                 // Fallback - copy to clipboard
                 const textToShare = `${shareData.text}\n\nHelp here: ${shareData.url}`;
@@ -388,5 +373,6 @@ $totalPages = ceil($totalRequests / $limit);
             window.location.reload();
         }, 300000);
     </script>
+    <script src="includes/sidebar.js"></script>
 </body>
 </html>

@@ -141,7 +141,10 @@ if (!$requestSuccess) {
                     </div>
                     
                     <div class="d-grid gap-2">
-                        <a href="blood-request.php" class="btn btn-success btn-lg">
+                        <a href="../requestor/login.php" class="btn btn-danger btn-lg">
+                            <i class="fas fa-search me-2"></i>Track This Request
+                        </a>
+                        <a href="blood-request.php" class="btn btn-success">
                             <i class="fas fa-plus me-2"></i>Submit Another Request
                         </a>
                         <a href="../index.php" class="btn btn-outline-success">
@@ -165,6 +168,7 @@ if (!$requestSuccess) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         // Auto-redirect after 30 seconds
         setTimeout(function() {

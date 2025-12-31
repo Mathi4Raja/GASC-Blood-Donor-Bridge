@@ -262,6 +262,16 @@ $stats['recent_activity'] = $db->query("
             background-color: #6c757d;
         }
         
+        .rounded-pill {
+            border-radius: 50rem !important;
+            transition: all 0.3s ease;
+        }
+        
+        .rounded-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
         @media (max-width: 768px) {
             .moderator-card {
                 margin-bottom: 10px;
@@ -270,6 +280,10 @@ $stats['recent_activity'] = $db->query("
             .btn-group-sm .btn {
                 padding: 0.25rem 0.5rem;
                 font-size: 0.75rem;
+            }
+            
+            .d-flex.gap-2 .btn {
+                flex: 1;
             }
         }
     </style>
@@ -338,9 +352,9 @@ $stats['recent_activity'] = $db->query("
                     <h1 class="h2">
                         <i class="fas fa-user-cog text-danger me-2"></i>Manage Moderators
                     </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModeratorModal">
-                            <i class="fas fa-plus me-1"></i>Add Moderator
+                    <div class="d-flex gap-2 mb-2 mb-md-0">
+                        <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addModeratorModal">
+                            <i class="fas fa-plus me-2"></i>Add Moderator
                         </button>
                     </div>
                 </div>
@@ -603,6 +617,7 @@ $stats['recent_activity'] = $db->query("
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function showResetPasswordModal(userId, userName) {
             document.getElementById('reset_user_id').value = userId;

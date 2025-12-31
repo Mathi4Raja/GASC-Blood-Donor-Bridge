@@ -1,5 +1,11 @@
 <?php
+// Initialize secure session BEFORE database connection
+require_once '../config/session.php';
+
+// Now safely connect to database and other configs
 require_once '../config/database.php';
+require_once '../config/email.php';
+require_once '../config/notifications.php';
 
 // Check if user is logged in as admin or moderator
 requireRole(['admin', 'moderator']);
@@ -28,50 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = "Request status updated to {$newStatus}.";
                 logActivity($_SESSION['user_id'], 'blood_request_status_updated', "Request ID {$requestId} status changed to {$newStatus}");
                 
-                // Send email notification to requester
-                $requestQuery = $db->prepare("SELECT * FROM blood_requests WHERE id = ?");
-                $requestQuery->bind_param('i', $requestId);
-                $requestQuery->execute();
-                $request = $requestQuery->get_result()->fetch_assoc();
-                
-                if ($request) {
-                    $emailSubject = "Blood Request Status Update - GASC Blood Bridge";
-                    $statusMessage = '';
-                    
-                    switch ($newStatus) {
-                        case 'Fulfilled':
-                            $statusMessage = "Great news! Your blood request has been fulfilled. Thank you for using our service.";
-                            break;
-                        case 'Cancelled':
-                            $statusMessage = "Your blood request has been cancelled. If you have any questions, please contact us.";
-                            break;
-                        case 'Expired':
-                            $statusMessage = "Your blood request has expired. You can submit a new request if still needed.";
-                            break;
-                    }
-                    
-                    if ($statusMessage) {
-                        $emailBody = "
-                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                            <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
-                                <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
-                            </div>
-                            <div style='padding: 30px; background: #f8f9fa;'>
-                                <h2>Request Status Update</h2>
-                                <p>Dear {$request['requester_name']},</p>
-                                <p>{$statusMessage}</p>
-                                <div style='background: white; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;'>
-                                    <p><strong>Request ID:</strong> #{$request['id']}</p>
-                                    <p><strong>Blood Group:</strong> {$request['blood_group']}</p>
-                                    <p><strong>Status:</strong> {$newStatus}</p>
-                                </div>
-                                <p>Thank you for using GASC Blood Bridge.</p>
-                            </div>
-                        </div>
-                        ";
-                        sendEmail($request['requester_email'], $emailSubject, $emailBody);
-                    }
-                }
+                // Send notification using the proper notification function that respects email settings
+                notifyRequestorStatusUpdate($requestId, $newStatus);
             } else {
                 $error = "Failed to update request status.";
             }
@@ -157,7 +121,9 @@ $totalPages = ceil($totalRecords / $limit);
 
 // Get requests
 $requestsQuery = "SELECT *, 
-                  (SELECT COUNT(*) FROM users u WHERE u.blood_group = blood_requests.blood_group AND u.city = blood_requests.city AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
+                  (SELECT COUNT(*) FROM users u 
+                   WHERE u.blood_group = blood_requests.blood_group 
+                   AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
                   FROM blood_requests {$whereClause} 
                   ORDER BY 
                     CASE urgency 
@@ -175,6 +141,80 @@ $types .= 'ii';
 $requestsStmt->bind_param($types, ...$params);
 $requestsStmt->execute();
 $requests = $requestsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $filename = 'blood_requests_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'ID', 'Patient Details', 'Blood Group', 'Units Needed', 'Hospital/Requester', 
+        'City', 'Urgency', 'Status', 'Requester Name', 'Requester Email', 
+        'Contact Number', 'Available Donors', 'Request Date', 'Expires At'
+    ];
+    fputcsv($output, $headers);
+    
+    // Get all requests for export (without pagination)
+    $exportQuery = "SELECT *, 
+                    (SELECT COUNT(*) FROM users u WHERE u.blood_group = blood_requests.blood_group AND u.city = blood_requests.city AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
+                    FROM blood_requests {$whereClause} 
+                    ORDER BY 
+                      CASE urgency 
+                          WHEN 'Critical' THEN 1 
+                          WHEN 'Urgent' THEN 2 
+                          WHEN 'Normal' THEN 3 
+                      END,
+                      created_at DESC";
+    
+    $exportStmt = $db->prepare($exportQuery);
+    if (!empty($params)) {
+        // Remove the limit and offset parameters for export
+        $exportParams = array_slice($params, 0, -2);
+        $exportTypes = substr($types, 0, -2);
+        
+        // Only bind parameters if we have both types and parameters
+        if (!empty($exportTypes) && !empty($exportParams)) {
+            $exportStmt->bind_param($exportTypes, ...$exportParams);
+        }
+    }
+    $exportStmt->execute();
+    $exportRequests = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Write data rows
+    foreach ($exportRequests as $request) {
+        $row = [
+            $request['id'],
+            $request['details'] ?? 'N/A', // Using details as patient info since patient_name doesn't exist
+            $request['blood_group'],
+            $request['units_needed'],
+            $request['requester_name'], // This is actually the hospital/requester name
+            $request['city'],
+            $request['urgency'],
+            $request['status'],
+            $request['requester_name'],
+            $request['requester_email'],
+            $request['requester_phone'] ?? 'N/A', // Using requester_phone instead of contact_number
+            $request['available_donors_count'],
+            $request['created_at'],
+            $request['expires_at'] ?? 'N/A' // Using expires_at instead of required_by
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'requests_exported', "Exported " . count($exportRequests) . " blood requests to CSV");
+    
+    exit;
+}
 
 // Get blood groups for filter
 $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -338,11 +378,8 @@ $stats['critical'] = $db->query("SELECT COUNT(*) as count FROM blood_requests WH
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
+                            <button type="button" class="btn btn-sm btn-success" onclick="exportData()">
+                                <i class="fas fa-download me-1"></i>Export CSV
                             </button>
                         </div>
                     </div>
@@ -633,6 +670,7 @@ $stats['critical'] = $db->query("SELECT COUNT(*) as count FROM blood_requests WH
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function showRequestDetails(request) {
             const modalContent = document.getElementById('requestDetailsContent');

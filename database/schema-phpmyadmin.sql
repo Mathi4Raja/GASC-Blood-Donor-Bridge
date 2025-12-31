@@ -16,7 +16,7 @@ CREATE TABLE users (
     gender ENUM('Male', 'Female', 'Other') NULL,
     date_of_birth DATE NULL,
     class VARCHAR(50) NULL,
-    blood_group VARCHAR(10) NULL,
+    blood_group VARCHAR(15) NULL COMMENT 'Supports standard (O+, A-, etc.) and extended (A1+, A2B-, etc.) blood groups',
     city VARCHAR(100) NULL,
     last_donation_date DATE NULL,
     is_available BOOLEAN DEFAULT TRUE,
@@ -44,7 +44,7 @@ CREATE TABLE blood_requests (
     requester_email VARCHAR(100) NOT NULL,
     requester_name VARCHAR(100) NOT NULL,
     requester_phone VARCHAR(15) NOT NULL,
-    blood_group VARCHAR(10) NOT NULL,
+    blood_group VARCHAR(15) NOT NULL COMMENT 'Supports standard and extended blood group formats',
     urgency ENUM('Critical', 'Urgent', 'Normal') NOT NULL,
     details TEXT NOT NULL,
     city VARCHAR(100) NOT NULL,
@@ -58,21 +58,6 @@ CREATE TABLE blood_requests (
     INDEX idx_city (city),
     INDEX idx_status (status),
     INDEX idx_urgency (urgency),
-    INDEX idx_expires_at (expires_at)
-);
-
--- OTP verifications table (used for email verification and password reset only)
-CREATE TABLE otp_verifications (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    email VARCHAR(100) NOT NULL,
-    otp VARCHAR(10) NOT NULL,
-    purpose ENUM('registration', 'password_reset') NOT NULL,
-    is_used BOOLEAN DEFAULT FALSE,
-    expires_at DATETIME NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_email (email),
-    INDEX idx_otp (otp),
     INDEX idx_expires_at (expires_at)
 );
 
@@ -119,40 +104,166 @@ CREATE TABLE system_settings (
     id INT PRIMARY KEY AUTO_INCREMENT,
     setting_key VARCHAR(100) UNIQUE NOT NULL,
     setting_value TEXT NOT NULL,
-    description TEXT NULL,
+    description TEXT NULL COMMENT 'Description of what this setting controls',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     INDEX idx_setting_key (setting_key)
 );
 
--- Blood group statistics view
-CREATE VIEW blood_group_stats AS
-SELECT 
-    blood_group,
-    COUNT(*) as total_donors,
-    SUM(CASE WHEN is_available = TRUE AND is_verified = TRUE AND is_active = TRUE THEN 1 ELSE 0 END) as available_donors,
-    SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male_donors,
-    SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female_donors,
-    AVG(DATEDIFF(CURDATE(), last_donation_date)) as avg_days_since_last_donation
-FROM users 
-WHERE user_type = 'donor' AND blood_group IS NOT NULL
-GROUP BY blood_group;
+-- Blood group reference table for validation and compatibility
+CREATE TABLE blood_group_types (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    blood_group VARCHAR(15) UNIQUE NOT NULL,
+    abo_type ENUM('O', 'A', 'B', 'AB', 'A1', 'A2', 'A1B', 'A2B') NOT NULL,
+    rh_factor ENUM('+', '-') NOT NULL,
+    is_standard BOOLEAN DEFAULT TRUE COMMENT 'TRUE for standard 8 types, FALSE for extended types',
+    is_active BOOLEAN DEFAULT TRUE,
+    description VARCHAR(100) NULL,
+    population_percentage DECIMAL(4,2) NULL COMMENT 'Approximate population percentage',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_abo_type (abo_type),
+    INDEX idx_rh_factor (rh_factor),
+    INDEX idx_is_standard (is_standard)
+) COMMENT = 'Reference table for all supported blood group types including ABO subtypes';
 
--- Recent requests view
-CREATE VIEW recent_requests AS
-SELECT 
-    br.id,
-    br.requester_name,
-    br.blood_group,
-    br.city,
-    br.urgency,
-    br.status,
-    br.created_at,
-    (SELECT COUNT(*) FROM users u WHERE u.blood_group = br.blood_group AND u.city = br.city AND u.is_available = TRUE AND u.is_verified = TRUE AND u.is_active = TRUE AND u.user_type = 'donor') as available_donors_count
-FROM blood_requests br 
-WHERE br.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-ORDER BY br.created_at DESC;
+-- Blood group compatibility matrix
+CREATE TABLE blood_group_compatibility (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    donor_blood_group VARCHAR(15) NOT NULLName of the site/application'),
+('admin_email', 'admin@gasc.edu', 'Primary administrator email address'),
+('max_requests_per_user', '5', 'Maximum blood requests per user per day'),
+('max_login_attempts', '5', 'Maximum failed login attempts before lockout'),
+('session_timeout_minutes', '30', 'Session timeout in minutes'),
+('email_notifications', '1', 'Enable or disable email notifications'),
+('auto_expire_requests', '1', 'Automatically expire blood requests based on urgency'),
+('require_email_verification', '1', 'Require email verification for new user registrations'),
+('allow_registrations', '1', 'Allow new user registrations'),
+('auto_backup_enabled', '0', 'Enable automatic database backups'),
+('blood_matching_mode', 'acceptable', 'Blood matching mode: perfect (exact match only) or acceptable (compatible matches)'),
+('strict_blood_matching', '0', 'Enable strict blood group matching (1 = perfect match only, 0 = allow compatible matches)'),
+('blood_subtype_awareness', '1', 'Consider blood group subtypes in matching (1 = enabled, 0 = use main groups only)'),
+('blood_matching_help_text', 'Perfect Match: Only donors with exact blood group. Acceptable Match: Donors with compatible blood groups.', 'Help text explaining blood matching modes');
+
+-- Insert blood group types (standard 8 + extended 8 with subtypes)
+INSERT INTO blood_group_types (blood_group, abo_type, rh_factor, is_standard, description, population_percentage) VALUES
+-- Standard blood groups
+('O-', 'O', '-', TRUE, 'Universal Donor', 6.60),
+('O+', 'O', '+', TRUE, 'Most common blood type', 37.40),
+('A-', 'A', '-', TRUE, 'Standard A negative', 6.30),
+('A+', 'A', '+', TRUE, 'Standard A positive', 35.70),
+('B-', 'B', '-', TRUE, 'Standard B negative', 1.50),
+('B+', 'B', '+', TRUE, 'Standard B positive', 8.50),
+('AB-', 'AB', '-', TRUE, 'Rare AB negative', 0.60),
+('AB+', 'AB', '+', TRUE, 'Universal Recipient', 3.40),
+-- Extended ABO subtype blood groups
+('A1-', 'A1', '-', FALSE, 'A1 subtype negative', 5.04),
+('A1+', 'A1', '+', FALSE, 'A1 subtype positive', 28.56),
+('A2-', 'A2', '-', FALSE, 'A2 subtype negative', 1.26),
+('A2+', 'A2', '+', FALSE, 'A2 subtype positive', 7.14),
+('A1B-', 'A1B', '-', FALSE, 'A1B subtype negative', 0.48),
+('A1B+', 'A1B', '+', FALSE, 'A1B subtype positive', 2.72),
+('A2B-', 'A2B', '-', FALSE, 'A2B subtype negative', 0.12),
+('A2B+', 'A2B', '+', FALSE, 'A2B subtype positive', 0.68);
+
+-- Insert blood group compatibility rules
+-- O- (Universal Donor) compatibility
+INSERT INTO blood_group_compatibility (donor_blood_group, recipient_blood_group, compatibility_level, notes) VALUES
+('O-', 'O-', 'perfect', 'Perfect match'),
+('O-', 'O+', 'perfect', 'Compatible Rh- to Rh+'),
+('O-', 'A-', 'perfect', 'Universal donor compatibility'),
+('O-', 'A+', 'perfect', 'Universal donor compatibility'),
+('O-', 'A1-', 'perfect', 'Universal donor to A1 subtype'),
+('O-', 'A1+', 'perfect', 'Universal donor to A1 subtype'),
+('O-', 'A2-', 'perfect', 'Universal donor to A2 subtype'),
+('O-', 'A2+', 'perfect', 'Universal donor to A2 subtype'),
+('O-', 'B-', 'perfect', 'Universal donor compatibility'),
+('O-', 'B+', 'perfect', 'Universal donor compatibility'),
+('O-', 'AB-', 'perfect', 'Universal donor compatibility'),
+('O-', 'AB+', 'perfect', 'Universal donor compatibility'),
+('O-', 'A1B-', 'perfect', 'Universal donor to A1B subtype'),
+('O-', 'A1B+', 'perfect', 'Universal donor to A1B subtype'),
+('O-', 'A2B-', 'perfect', 'Universal donor to A2B subtype'),
+('O-', 'A2B+', 'perfect', 'Universal donor to A2B subtype'),
+-- O+ compatibility
+('O+', 'O+', 'perfect', 'Perfect match'),
+('O+', 'A+', 'perfect', 'O+ to A+ compatibility'),
+('O+', 'A1+', 'perfect', 'O+ to A1+ compatibility'),
+('O+', 'A2+', 'perfect', 'O+ to A2+ compatibility'),
+('O+', 'B+', 'perfect', 'O+ to B+ compatibility'),
+('O+', 'AB+', 'perfect', 'O+ to AB+ compatibility'),
+('O+', 'A1B+', 'perfect', 'O+ to A1B+ compatibility'),
+('O+', 'A2B+', 'perfect', 'O+ to A2B+ compatibility'),
+-- A1 subtype compatibility
+('A1-', 'A1-', 'perfect', 'Perfect A1 match'),
+('A1-', 'A1+', 'perfect', 'A1- to A1+ compatibility'),
+('A1-', 'A-', 'acceptable', 'A1 to general A compatibility'),
+('A1-', 'A+', 'acceptable', 'A1 to general A compatibility'),
+('A1-', 'AB-', 'perfect', 'A1 to AB compatibility'),
+('A1-', 'AB+', 'perfect', 'A1 to AB compatibility'),
+('A1-', 'A1B-', 'perfect', 'A1 to A1B compatibility'),
+('A1-', 'A1B+', 'perfect', 'A1 to A1B compatibility'),
+('A1+', 'A1+', 'perfect', 'Perfect A1+ match'),
+('A1+', 'A+', 'acceptable', 'A1+ to general A+ compatibility'),
+('A1+', 'AB+', 'perfect', 'A1+ to AB+ compatibility'),
+('A1+', 'A1B+', 'perfect', 'A1+ to A1B+ compatibility'),
+-- A2 subtype compatibility
+('A2-', 'A2-', 'perfect', 'Perfect A2 match'),
+('A2-', 'A2+', 'perfect', 'A2- to A2+ compatibility'),
+('A2-', 'A-', 'acceptable', 'A2 to general A compatibility'),
+('A2-', 'A+', 'acceptable', 'A2 to general A compatibility'),
+('A2-', 'AB-', 'perfect', 'A2 to AB compatibility'),
+('A2-', 'AB+', 'perfect', 'A2 to AB compatibility'),
+('A2-', 'A2B-', 'perfect', 'A2 to A2B compatibility'),
+('A2-', 'A2B+', 'perfect', 'A2 to A2B compatibility'),
+('A2+', 'A2+', 'perfect', 'Perfect A2+ match'),
+('A2+', 'A+', 'acceptable', 'A2+ to general A+ compatibility'),
+('A2+', 'AB+', 'perfect', 'A2+ to AB+ compatibility'),
+('A2+', 'A2B+', 'perfect', 'A2+ to A2B+ compatibility'),
+-- Standard blood group compatibility
+('A-', 'A-', 'perfect', 'Perfect A- match'),
+('A-', 'A+', 'perfect', 'A- to A+ compatibility'),
+('A-', 'AB-', 'perfect', 'A- to AB- compatibility'),
+('A-', 'AB+', 'perfect', 'A- to AB+ compatibility'),
+('A+', 'A+', 'perfect', 'Perfect A+ match'),
+('A+', 'AB+', 'perfect', 'A+ to AB+ compatibility'),
+('B-', 'B-', 'perfect', 'Perfect B- match'),
+('B-', 'B+', 'perfect', 'B- to B+ compatibility'),
+('B-', 'AB-', 'perfect', 'B- to AB- compatibility'),
+('B-', 'AB+', 'perfect', 'B- to AB+ compatibility'),
+('B+', 'B+', 'perfect', 'Perfect B+ match'),
+('B+', 'AB+', 'perfect', 'B+ to AB+ compatibility'),
+-- A1B subtype compatibility
+('A1B-', 'A1B-', 'perfect', 'Perfect A1B- match'),
+('A1B-', 'A1B+', 'perfect', 'A1B- to A1B+ compatibility'),
+('A1B-', 'AB-', 'acceptable', 'A1B to general AB compatibility'),
+('A1B-', 'AB+', 'acceptable', 'A1B to general AB compatibility'),
+('A1B+', 'A1B+', 'perfect', 'Perfect A1B+ match'),
+('A1B+', 'AB+', 'acceptable', 'A1B+ to general AB+ compatibility'),
+-- A2B subtype compatibility
+('A2B-', 'A2B-', 'perfect', 'Perfect A2B- match'),
+('A2B-', 'A2B+', 'perfect', 'A2B- to A2B+ compatibility'),
+('A2B-', 'AB-', 'acceptable', 'A2B to general AB compatibility'),
+('A2B-', 'AB+', 'acceptable', 'A2B to general AB compatibility'),
+('A2B+', 'A2B+', 'perfect', 'Perfect A2B+ match'),
+('A2B+', 'AB+', 'acceptable', 'A2B+ to general AB+ compatibility'),
+-- AB standard compatibility
+('AB-', 'AB-', 'perfect', 'Perfect AB- match'),
+('AB-', 'AB+', 'perfect', 'AB- to AB+ compatibility'),
+('AB+', 'AB+', 'perfect', 'Perfect AB+ match
+    INDEX idx_recipient_blood_group (recipient_blood_group),
+    FOREIGN KEY (donor_blood_group) REFERENCES blood_group_types(blood_group) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_blood_group) REFERENCES blood_group_types(blood_group) ON DELETE CASCADE
+) COMMENT = 'Compatibility matrix for blood group matching including subtype compatibility';
+
+-- Blood group statistics view
+-- REMOVED: CREATE VIEW not supported on many hosting providers
+-- Use getBloodGroupStats() function in config/database.php instead
+
+-- Recent requests view  
+-- REMOVED: CREATE VIEW not supported on many hosting providers
+-- Use getRecentRequestsStats() function in config/database.php instead
 
 -- Composite indexes for better performance
 CREATE INDEX idx_requests_composite ON blood_requests(status, blood_group, city, urgency);
@@ -167,13 +278,14 @@ INSERT INTO users (name, email, phone, password_hash, user_type, is_verified, is
 -- Insert system settings
 INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('site_name', 'GASC Blood Donor Bridge', 'Website name'),
-('site_email', 'admin@gasc.edu', 'System email address'),
-('request_expiry_days', '30', 'Default expiry days for blood requests'),
-('male_donation_gap_months', '3', 'Minimum months between donations for males'),
-('female_donation_gap_months', '4', 'Minimum months between donations for females'),
-('otp_expiry_minutes', '10', 'OTP expiry time in minutes'),
+('admin_email', 'admin@gasc.edu', 'Administrator email address'),
+('max_requests_per_user', '5', 'Maximum requests per user per day'),
 ('max_login_attempts', '5', 'Maximum login attempts before lockout'),
-('session_timeout_minutes', '30', 'Session timeout in minutes');
+('session_timeout_minutes', '30', 'Session timeout in minutes'),
+('email_notifications', '1', 'Enable email notifications'),
+('auto_expire_requests', '1', 'Auto-expire old requests'),
+('require_email_verification', '1', 'Require email verification for new accounts'),
+('allow_registrations', '1', 'Allow new user registrations');
 
 -- Insert sample donor data for testing (password: "secret")
 -- Test donor login credentials: Use any email below with password "secret"

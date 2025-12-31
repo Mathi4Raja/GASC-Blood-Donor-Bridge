@@ -46,7 +46,7 @@ if ($reportType === 'overview') {
     $reportData = array_merge($reportData, $requestStats);
     
     // Blood group distribution
-    $reportData['blood_group_stats'] = $db->query("SELECT * FROM blood_group_stats ORDER BY blood_group")->fetch_all(MYSQLI_ASSOC);
+    $reportData['blood_group_stats'] = getBloodGroupStats();
     
     // Daily requests trend
     $trendStmt = $db->prepare("
@@ -156,7 +156,7 @@ if ($reportType === 'overview') {
     ");
     $recentRequestsStmt->bind_param('ss', $startDate, $endDate);
     $recentRequestsStmt->execute();
-    $reportData['recent_requests'] = $recentRequestsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $reportData['recent_requests'] = getRecentRequestsStats(30);
     
 } elseif ($reportType === 'activity') {
     // Most active users
@@ -241,6 +241,88 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 $donor['blood_group'],
                 $donor['city'],
                 $donor['created_at']
+            ]);
+        }
+        
+    } elseif ($reportType === 'requests') {
+        fputcsv($output, ['GASC Blood Bridge - Blood Requests Report']);
+        fputcsv($output, ['Generated on', date('Y-m-d H:i:s')]);
+        fputcsv($output, ['Date Range', $startDate . ' to ' . $endDate]);
+        fputcsv($output, []);
+        
+        // Recent requests
+        fputcsv($output, ['Recent Blood Requests']);
+        fputcsv($output, ['Requester Name', 'Blood Group', 'City', 'Urgency', 'Status', 'Units Needed', 'Request Date']);
+        foreach ($reportData['recent_requests'] as $request) {
+            fputcsv($output, [
+                $request['requester_name'],
+                $request['blood_group'],
+                $request['city'],
+                $request['urgency'],
+                $request['status'],
+                $request['units_needed'],
+                $request['created_at']
+            ]);
+        }
+        
+        fputcsv($output, []);
+        fputcsv($output, ['Blood Group Demand Statistics']);
+        fputcsv($output, ['Blood Group', 'Total Requests', 'Total Units Requested', 'Units Fulfilled']);
+        foreach ($reportData['demand_stats'] as $demand) {
+            fputcsv($output, [
+                $demand['blood_group'],
+                $demand['total_requests'],
+                $demand['total_units_requested'],
+                $demand['units_fulfilled']
+            ]);
+        }
+        
+        fputcsv($output, []);
+        fputcsv($output, ['Urgency Statistics']);
+        fputcsv($output, ['Urgency Level', 'Total Requests', 'Fulfilled', 'Avg Resolution Hours']);
+        foreach ($reportData['urgency_stats'] as $urgency) {
+            fputcsv($output, [
+                $urgency['urgency'],
+                $urgency['total'],
+                $urgency['fulfilled'],
+                round($urgency['avg_resolution_hours'] ?? 0, 2)
+            ]);
+        }
+        
+    } elseif ($reportType === 'activity') {
+        fputcsv($output, ['GASC Blood Bridge - Activity Report']);
+        fputcsv($output, ['Generated on', date('Y-m-d H:i:s')]);
+        fputcsv($output, ['Date Range', $startDate . ' to ' . $endDate]);
+        fputcsv($output, []);
+        
+        // Most active users
+        fputcsv($output, ['Most Active Users']);
+        fputcsv($output, ['User Name', 'User Type', 'Activity Count']);
+        foreach ($reportData['active_users'] as $user) {
+            fputcsv($output, [
+                $user['name'],
+                $user['user_type'],
+                $user['activity_count']
+            ]);
+        }
+        
+        fputcsv($output, []);
+        fputcsv($output, ['Activity by Action Type']);
+        fputcsv($output, ['Action', 'Count']);
+        foreach ($reportData['action_stats'] as $action) {
+            fputcsv($output, [
+                $action['action'],
+                $action['count']
+            ]);
+        }
+        
+        fputcsv($output, []);
+        fputcsv($output, ['Daily Activity Trend']);
+        fputcsv($output, ['Date', 'Activity Count']);
+        foreach ($reportData['activity_trend'] as $trend) {
+            fputcsv($output, [
+                $trend['date'],
+                $trend['activity_count']
             ]);
         }
     }
@@ -380,10 +462,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" onclick="exportReport()">
+                            <button type="button" class="btn btn-sm btn-success" onclick="exportReport()">
                                 <i class="fas fa-download me-1"></i>Export CSV
                             </button>
                         </div>
@@ -663,6 +742,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function exportReport() {
             const params = new URLSearchParams(window.location.search);
@@ -671,7 +751,68 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         }
         
         // Chart.js configurations
-        <?php if ($reportType === 'overview' && !empty($reportData['blood_group_stats'])): ?>
+    <?php if ($reportType === 'overview' && !empty($reportData['blood_group_stats'])): ?>
+        <?php if ($reportType === 'overview' && !empty($reportData['daily_trend'])): ?>
+            // Daily Requests Trend Line Chart
+            const dailyTrendCtx = document.getElementById('dailyTrendChart').getContext('2d');
+            const dailyTrendData = <?php echo json_encode($reportData['daily_trend']); ?>;
+            new Chart(dailyTrendCtx, {
+                type: 'line',
+                data: {
+                    labels: dailyTrendData.map(item => item.date),
+                    datasets: [
+                        {
+                            label: 'Requests',
+                            data: dailyTrendData.map(item => parseInt(item.requests_count)),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#3b82f6',
+                        },
+                        {
+                            label: 'Fulfilled',
+                            data: dailyTrendData.map(item => parseInt(item.fulfilled_count)),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#10b981',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Requests'
+                            }
+                        }
+                    }
+                }
+            });
+        <?php endif; ?>
             // Blood Group Chart
             const bloodGroupCtx = document.getElementById('bloodGroupChart').getContext('2d');
             new Chart(bloodGroupCtx, {
@@ -750,6 +891,86 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             });
         <?php endif; ?>
         
+        <?php if ($reportType === 'requests' && !empty($reportData['demand_stats'])): ?>
+            // Blood Group Demand Pie Chart with Auto-Generated Distinct Colors
+            const bloodGroups = <?php echo json_encode(array_column($reportData['demand_stats'], 'blood_group')); ?>;
+            // Generate visually distinct colors using HSL
+            function generateDistinctColors(n) {
+                const colors = [];
+                const saturation = 70; // percent
+                const lightness = 55; // percent
+                for (let i = 0; i < n; i++) {
+                    const hue = Math.round((360 / n) * i);
+                    colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+                }
+                return colors;
+            }
+            const demandColors = generateDistinctColors(bloodGroups.length);
+            const demandCtx = document.getElementById('demandChart').getContext('2d');
+            new Chart(demandCtx, {
+                type: 'pie',
+                data: {
+                    labels: bloodGroups,
+                    datasets: [{
+                        data: <?php echo json_encode(array_map('intval', array_column($reportData['demand_stats'], 'total_requests'))); ?>,
+                        backgroundColor: demandColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        return data.labels.map(function(label, i) {
+                                            return {
+                                                text: label,
+                                                fillStyle: data.datasets[0].backgroundColor[i],
+                                                strokeStyle: data.datasets[0].backgroundColor[i],
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        <?php endif; ?>
+        
+        <?php if ($reportType === 'activity' && !empty($reportData['action_stats'])): ?>
+            // Activity by Action Type Chart
+            const activityCtx = document.getElementById('activityChart').getContext('2d');
+            new Chart(activityCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: <?php echo json_encode(array_column($reportData['action_stats'], 'action')); ?>,
+                    datasets: [{
+                        data: <?php echo json_encode(array_map('intval', array_column($reportData['action_stats'], 'count'))); ?>,
+                        backgroundColor: [
+                            '#dc2626', '#ef4444', '#f59e0b', '#10b981',
+                            '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280',
+                            '#84cc16', '#06b6d4', '#f97316', '#a855f7'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        <?php endif; ?>
         // Mobile Navigation Toggle
         const mobileNavToggle = document.getElementById('mobileNavToggle');
         const sidebarClose = document.getElementById('sidebarClose');

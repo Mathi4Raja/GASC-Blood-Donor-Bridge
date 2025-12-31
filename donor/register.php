@@ -1,8 +1,16 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php';
+require_once '../config/site.php';
+require_once '../config/system-settings.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
+        // Check if registrations are allowed
+        if (!SystemSettings::areRegistrationsAllowed()) {
+            throw new Exception('New user registrations are currently disabled. Please contact an administrator.');
+        }
+        
         // CSRF protection
         if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
             throw new Exception('Invalid security token. Please try again.');
@@ -78,53 +86,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $verificationToken = generateSecureToken();
         $hashedPassword = hashPassword($password);
         
+        // Check if email verification is required
+        $requireEmailVerification = SystemSettings::isEmailVerificationRequired();
+        $emailVerified = !$requireEmailVerification ? 1 : 0; // If verification not required, mark as verified
+        $verificationTokenValue = $requireEmailVerification ? $verificationToken : null;
+        $userType = 'donor';
+        
         // Insert new donor
-        $sql = "INSERT INTO users (roll_no, name, email, phone, password_hash, user_type, gender, date_of_birth, class, blood_group, city, email_verification_token) 
-                VALUES (?, ?, ?, ?, ?, 'donor', ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO users (roll_no, name, email, phone, password_hash, user_type, gender, date_of_birth, class, blood_group, city, email_verification_token, email_verified) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $db->prepare($sql);
-        $stmt->bind_param('sssssssssss', 
-            $rollNo, $name, $email, $phone, $hashedPassword, 
-            $gender, $dateOfBirth, $class, $bloodGroup, $city, $verificationToken
+        $stmt->bind_param('ssssssssssssi', 
+            $rollNo, $name, $email, $phone, $hashedPassword, $userType,
+            $gender, $dateOfBirth, $class, $bloodGroup, $city, 
+            $verificationTokenValue, $emailVerified
         );
         
         if ($stmt->execute()) {
             $userId = $db->lastInsertId();
             
-            // Send verification email
-            $verificationLink = "http://" . $_SERVER['HTTP_HOST'] . "/GASC Blood Donor Bridge/donor/verify-email.php?token=" . $verificationToken;
-            $emailSubject = "GASC Blood Bridge - Verify Your Email";
-            $emailBody = "
-            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
-                    <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
-                </div>
-                <div style='padding: 30px; background: #f8f9fa;'>
-                    <h2>Welcome $name!</h2>
-                    <p>Thank you for registering as a blood donor with GASC Blood Bridge.</p>
-                    <p>To complete your registration, please click the button below to verify your email address:</p>
-                    <div style='text-align: center; margin: 30px 0;'>
-                        <a href='$verificationLink' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email Address</a>
+            if ($requireEmailVerification) {
+                // Send verification email only if verification is required
+                $verificationLink = siteUrl("donor/verify-email.php?token=" . $verificationToken);
+                $emailSubject = "GASC Blood Bridge - Verify Your Email";
+                $emailBody = "
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                    <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
+                        <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
                     </div>
-                    <p>Or copy and paste this link in your browser:</p>
-                    <p style='word-break: break-all; background: white; padding: 10px; border-radius: 5px;'>$verificationLink</p>
-                    <p>This link will expire in 24 hours.</p>
-                    <hr style='margin: 30px 0; border: 1px solid #dee2e6;'>
-                    <p style='color: #6c757d; font-size: 14px;'>
-                        If you didn't create this account, please ignore this email.<br>
-                        Best regards,<br>
-                        GASC Blood Bridge Team
-                    </p>
+                    <div style='padding: 30px; background: #f8f9fa;'>
+                        <h2>Welcome $name!</h2>
+                        <p>Thank you for registering as a blood donor with GASC Blood Bridge.</p>
+                        <p>To complete your registration, please click the button below to verify your email address:</p>
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <a href='$verificationLink' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email Address</a>
+                        </div>
+                        <p>Or copy and paste this link in your browser:</p>
+                        <p style='word-break: break-all; background: white; padding: 10px; border-radius: 5px;'>$verificationLink</p>
+                        <p>This link will expire in 24 hours.</p>
+                        <hr style='margin: 30px 0; border: 1px solid #dee2e6;'>
+                        <p style='color: #6c757d; font-size: 14px;'>
+                            If you didn't create this account, please ignore this email.<br>
+                            Best regards,<br>
+                            GASC Blood Bridge Team
+                        </p>
+                    </div>
                 </div>
-            </div>
-            ";
-            
-            sendEmail($email, $emailSubject, $emailBody);
-            
-            // Log activity
-            logActivity($userId, 'donor_registration', "New donor registered: $name ($email)");
-            
-            $success = "Registration successful! Please check your email to verify your account.";
+                ";
+                
+                sendEmail($email, $emailSubject, $emailBody);
+                
+                // Log activity for verification required
+                logActivity($userId, 'donor_registration', "New donor registered: $name ($email) - email verification required");
+                
+                $success = "Registration successful! Please check your email to verify your account.";
+            } else {
+                // Log activity for auto-verified users
+                logActivity($userId, 'donor_registration', "New donor registered: $name ($email) - auto-verified");
+                
+                $success = "Registration successful! You can now log in to your account.";
+            }
             
         } else {
             throw new Exception('Registration failed. Please try again.');
@@ -146,6 +168,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
     <style>
+        .register-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            display: flex;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        
+        .register-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .register-header {
+            background: linear-gradient(135deg, #fee2e2, #ffffff);
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .register-body {
+            padding: 1.5rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-danger {
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .register-container {
+                padding: 1rem 0.5rem;
+                align-items: flex-start;
+                min-height: auto;
+            }
+            
+            .register-header {
+                padding: 1.25rem 1rem;
+            }
+            
+            .register-header h2 {
+                font-size: 1.5rem;
+            }
+            
+            .register-body {
+                padding: 1.25rem;
+            }
+            
+            .form-control, .form-select {
+                font-size: 0.85rem;
+                padding: 0.625rem 0.875rem;
+            }
+            
+            .btn-danger {
+                padding: 0.625rem 1.25rem;
+                font-size: 0.9rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .register-container {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .register-header {
+                padding: 1rem 0.75rem;
+            }
+            
+            .register-header h2 {
+                font-size: 1.25rem;
+            }
+            
+            .register-body {
+                padding: 1rem;
+            }
+            
+            .form-control, .form-select {
+                font-size: 0.8rem;
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .btn-danger {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
         .back-home-btn-card {
             background: #fff;
             color: #dc2626 !important;
@@ -387,10 +509,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <label class="form-label">
                                         <i class="fas fa-tint text-danger me-1"></i>Blood Group *
                                     </label>
-                                    <input type="text" class="form-control" id="blood_group" name="blood_group" 
-                                           value="<?php echo $bloodGroup ?? ''; ?>" required
-                                           placeholder="e.g., A+, O-, B+">
-                                    <div class="invalid-feedback">Please provide your blood group (e.g., A+, O-, B+).</div>
+                                    <select class="form-select" id="blood_group" name="blood_group" required>
+                                        <option value="">Select Blood Group</option>
+                                        
+                                        <!-- Standard ABO/Rh Blood Groups -->
+                                        <optgroup label="Standard Blood Groups">
+                                            <option value="O-" <?php echo ($bloodGroup ?? '') === 'O-' ? 'selected' : ''; ?>>O- (Universal Donor)</option>
+                                            <option value="O+" <?php echo ($bloodGroup ?? '') === 'O+' ? 'selected' : ''; ?>>O+ (Most Common)</option>
+                                            <option value="A-" <?php echo ($bloodGroup ?? '') === 'A-' ? 'selected' : ''; ?>>A-</option>
+                                            <option value="A+" <?php echo ($bloodGroup ?? '') === 'A+' ? 'selected' : ''; ?>>A+</option>
+                                            <option value="B-" <?php echo ($bloodGroup ?? '') === 'B-' ? 'selected' : ''; ?>>B-</option>
+                                            <option value="B+" <?php echo ($bloodGroup ?? '') === 'B+' ? 'selected' : ''; ?>>B+</option>
+                                            <option value="AB-" <?php echo ($bloodGroup ?? '') === 'AB-' ? 'selected' : ''; ?>>AB-</option>
+                                            <option value="AB+" <?php echo ($bloodGroup ?? '') === 'AB+' ? 'selected' : ''; ?>>AB+ (Universal Recipient)</option>
+                                        </optgroup>
+                                        
+                                        <!-- Extended ABO Subtypes -->
+                                        <optgroup label="ABO Subtypes (Laboratory Verified)">
+                                            <option value="A1-" <?php echo ($bloodGroup ?? '') === 'A1-' ? 'selected' : ''; ?>>A1- (A1 Subtype)</option>
+                                            <option value="A1+" <?php echo ($bloodGroup ?? '') === 'A1+' ? 'selected' : ''; ?>>A1+ (A1 Subtype)</option>
+                                            <option value="A2-" <?php echo ($bloodGroup ?? '') === 'A2-' ? 'selected' : ''; ?>>A2- (A2 Subtype)</option>
+                                            <option value="A2+" <?php echo ($bloodGroup ?? '') === 'A2+' ? 'selected' : ''; ?>>A2+ (A2 Subtype)</option>
+                                            <option value="A1B-" <?php echo ($bloodGroup ?? '') === 'A1B-' ? 'selected' : ''; ?>>A1B- (A1B Subtype)</option>
+                                            <option value="A1B+" <?php echo ($bloodGroup ?? '') === 'A1B+' ? 'selected' : ''; ?>>A1B+ (A1B Subtype)</option>
+                                            <option value="A2B-" <?php echo ($bloodGroup ?? '') === 'A2B-' ? 'selected' : ''; ?>>A2B- (A2B Subtype)</option>
+                                            <option value="A2B+" <?php echo ($bloodGroup ?? '') === 'A2B+' ? 'selected' : ''; ?>>A2B+ (A2B Subtype)</option>
+                                        </optgroup>
+                                    </select>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle text-info"></i>
+                                        <strong>ABO Subtypes:</strong> Select A1, A2, A1B, or A2B only if confirmed by laboratory testing.
+                                        If unsure, choose the standard group (A+, A-, AB+, AB-).
+                                    </div>
+                                    <div class="invalid-feedback">Please select your blood group.</div>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
@@ -457,6 +608,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('registrationForm');

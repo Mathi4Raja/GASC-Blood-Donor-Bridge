@@ -1,14 +1,32 @@
 <?php
+// Add cache-busting headers first
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Initialize secure session BEFORE any database connections
+require_once '../config/session.php';
+
+// Now safely include database and other configs
 require_once '../config/database.php';
+require_once '../config/email.php';
+
+// Include configuration files
+require_once '../config/database.php';
+require_once '../config/email.php';
+error_log("Session initialized - ID: " . session_id());
+error_log("CSRF token in session: " . ($_SESSION['csrf_token'] ?? 'NONE'));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // CSRF protection
-        if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+        $submittedToken = $_POST['csrf_token'] ?? '';
+        $sessionToken = $_SESSION['csrf_token'] ?? '';
+        
+        // Verify CSRF token
+        if (empty($submittedToken) || empty($sessionToken) || !hash_equals($sessionToken, $submittedToken)) {
             throw new Exception('Invalid security token. Please try again.');
         }
-        
-        // Rate limiting disabled for testing phase
         
         // Validate input
         $requesterName = sanitizeInput($_POST['requester_name'] ?? '');
@@ -47,6 +65,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Units needed must be between 1 and 10.');
         }
         
+        // Check request limits per user per day
+        require_once '../config/system-settings.php';
+        $maxRequestsPerDay = SystemSettings::getMaxRequestsPerUser();
+        
+        // Initialize database connection
+        $db = new Database();
+        
+        // Count requests from this email today
+        $todayStart = date('Y-m-d 00:00:00');
+        $todayEnd = date('Y-m-d 23:59:59');
+        $requestCountQuery = "SELECT COUNT(*) as count FROM blood_requests 
+                             WHERE requester_email = ? 
+                             AND created_at BETWEEN ? AND ?";
+        $requestCountResult = $db->query($requestCountQuery, [$requesterEmail, $todayStart, $todayEnd]);
+        $requestCount = $requestCountResult->fetch_assoc()['count'];
+        
+        if ($requestCount >= $maxRequestsPerDay) {
+            throw new Exception("Request limit exceeded. You can only submit {$maxRequestsPerDay} request(s) per day.");
+        }
+        
         // Calculate expiry date based on urgency
         $expiryDays = [
             'Critical' => 1,
@@ -57,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $expiresAt = date('Y-m-d H:i:s', strtotime("+{$expiryDays[$urgency]} days"));
         
         // Insert blood request
-        $db = new Database();
         $sql = "INSERT INTO blood_requests (requester_name, requester_email, requester_phone, blood_group, urgency, details, city, units_needed, expires_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
@@ -72,8 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Get available donors count
             $donorsQuery = "SELECT COUNT(*) as donor_count FROM users 
-                           WHERE blood_group = ? AND city = ? AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
-            $donorsResult = $db->query($donorsQuery, [$bloodGroup, $city]);
+                           WHERE blood_group = ? 
+                           AND is_available = TRUE AND is_verified = TRUE AND is_active = TRUE AND user_type = 'donor'";
+            $donorsResult = $db->query($donorsQuery, [$bloodGroup]);
             $donorCount = $donorsResult->fetch_assoc()['donor_count'];
             
             // Send confirmation email to requester
@@ -108,6 +146,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ";
             
             sendEmail($requesterEmail, $emailSubject, $emailBody);
+            
+            // Send notifications to eligible donors
+            require_once '../config/notifications.php';
+            $notificationResult = notifyDonorsForBloodRequest($requestId);
+            
+            if ($notificationResult && is_array($notificationResult)) {
+                logActivity(null, 'blood_request_notifications', 
+                    "Request #$requestId notifications: {$notificationResult['donors_notified']} donors, " .
+                    "{$notificationResult['emails_sent']} emails sent");
+            }
             
             // Log activity
             logActivity(null, 'blood_request_created', "New blood request: $bloodGroup in $city (Request ID: $requestId)");
@@ -149,15 +197,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             display: flex;
             align-items: center;
-            padding: 40px 0;
+            justify-content: center;
+            padding: 2rem 1rem;
         }
         
         .request-card {
             background: white;
-            border-radius: 15px;
+            border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
             max-width: 900px;
+            width: 100%;
             margin: 0 auto;
         }
         
@@ -166,8 +216,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         .request-header {
-            background: linear-gradient(135deg, #fee2e2, #white);
-            padding: 2rem;
+            background: linear-gradient(135deg, #fee2e2, #ffffff);
+            padding: 1.5rem;
             text-align: center;
             border-bottom: 1px solid #e5e7eb;
         }
@@ -175,8 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .urgency-cards {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 10px;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
         }
         
         .urgency-card {
@@ -192,21 +242,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: block;
             background: #f8f9fa;
             border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 15px;
+            border-radius: 8px;
+            padding: 1rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
             height: 100%;
+            font-size: 0.9rem;
         }
         
         .urgency-card input[type="radio"]:checked + label {
             border-color: #dc2626;
             background: #fee2e2;
+            font-weight: 600;
         }
         
         .urgency-critical label {
             border-color: #dc2626;
+        }
+        
+        /* Mobile responsive urgency cards */
+        @media (max-width: 768px) {
+            .request-container {
+                padding: 1rem;
+                align-items: flex-start;
+                min-height: auto;
+                justify-content: center;
+            }
+            
+            .request-card {
+                margin: 0;
+                max-width: 100%;
+            }
+            
+            .request-header {
+                padding: 1.25rem 1rem;
+            }
+            
+            .request-header h2 {
+                font-size: 1.5rem;
+            }
+            
+            .urgency-cards {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .urgency-card label {
+                padding: 0.875rem;
+                font-size: 0.85rem;
+            }
+            
+            .blood-group-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .request-container {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .request-card {
+                border-radius: 8px;
+            }
+            
+            .request-header {
+                padding: 1rem 0.75rem;
+            }
+            
+            .request-header h2 {
+                font-size: 1.25rem;
+            }
+            
+            .urgency-card label {
+                padding: 0.75rem;
+                font-size: 0.8rem;
+            }
+            
+            .p-4 {
+                padding: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .request-container {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .request-card {
+                border-radius: 6px;
+            }
+            
+            .p-4 {
+                padding: 0.75rem !important;
+            }
         }
         
         .urgency-urgent label {
@@ -291,13 +421,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="request-container">
-        <div class="container">
-            <div class="request-card">
-                <div style="position: relative;">
-                    <a href="../index.php" class="back-home-btn-card position-absolute top-0 start-0 mt-3 ms-3 text-decoration-none" style="z-index:1050;">
-                        <i class="fas fa-arrow-left"></i>
-                    </a>
-                </div>
+        <div class="request-card">
+            <div style="position: relative;">
+                <a href="../index.php" class="back-home-btn-card position-absolute top-0 start-0 mt-3 ms-3 text-decoration-none" style="z-index:1050;">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
         <style>
             .back-home-btn-card {
                 background: #fff;
@@ -359,7 +488,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     
                     <form method="POST" action="" id="requestForm" novalidate>
-                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                        <?php 
+                        // Ensure we have a CSRF token
+                        if (!isset($_SESSION['csrf_token'])) {
+                            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                        }
+                        $csrfToken = $_SESSION['csrf_token'];
+                        ?>
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -410,10 +546,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label for="blood_group" class="form-label">
                                     <i class="fas fa-tint text-danger me-1"></i>Blood Group Required *
                                 </label>
-                                <input type="text" class="form-control" id="blood_group" name="blood_group" 
-                                       value="<?php echo $bloodGroup ?? ''; ?>" required
-                                       placeholder="e.g., A+, O-, B+">
-                                <div class="invalid-feedback">Please provide your blood group (e.g., A+, O-, B+).</div>
+                                <select class="form-select" id="blood_group" name="blood_group" required>
+                                    <option value="">Select Blood Group Needed</option>
+                                    
+                                    <!-- Standard ABO/Rh Blood Groups -->
+                                    <optgroup label="Standard Blood Groups">
+                                        <option value="O-" <?php echo ($bloodGroup ?? '') === 'O-' ? 'selected' : ''; ?>>O- (Universal Donor)</option>
+                                        <option value="O+" <?php echo ($bloodGroup ?? '') === 'O+' ? 'selected' : ''; ?>>O+ (Most Common)</option>
+                                        <option value="A-" <?php echo ($bloodGroup ?? '') === 'A-' ? 'selected' : ''; ?>>A-</option>
+                                        <option value="A+" <?php echo ($bloodGroup ?? '') === 'A+' ? 'selected' : ''; ?>>A+</option>
+                                        <option value="B-" <?php echo ($bloodGroup ?? '') === 'B-' ? 'selected' : ''; ?>>B-</option>
+                                        <option value="B+" <?php echo ($bloodGroup ?? '') === 'B+' ? 'selected' : ''; ?>>B+</option>
+                                        <option value="AB-" <?php echo ($bloodGroup ?? '') === 'AB-' ? 'selected' : ''; ?>>AB-</option>
+                                        <option value="AB+" <?php echo ($bloodGroup ?? '') === 'AB+' ? 'selected' : ''; ?>>AB+ (Universal Recipient)</option>
+                                    </optgroup>
+                                    
+                                    <!-- Extended ABO Subtypes -->
+                                    <optgroup label="ABO Subtypes (If Specifically Required)">
+                                        <option value="A1-" <?php echo ($bloodGroup ?? '') === 'A1-' ? 'selected' : ''; ?>>A1- (A1 Subtype)</option>
+                                        <option value="A1+" <?php echo ($bloodGroup ?? '') === 'A1+' ? 'selected' : ''; ?>>A1+ (A1 Subtype)</option>
+                                        <option value="A2-" <?php echo ($bloodGroup ?? '') === 'A2-' ? 'selected' : ''; ?>>A2- (A2 Subtype)</option>
+                                        <option value="A2+" <?php echo ($bloodGroup ?? '') === 'A2+' ? 'selected' : ''; ?>>A2+ (A2 Subtype)</option>
+                                        <option value="A1B-" <?php echo ($bloodGroup ?? '') === 'A1B-' ? 'selected' : ''; ?>>A1B- (A1B Subtype)</option>
+                                        <option value="A1B+" <?php echo ($bloodGroup ?? '') === 'A1B+' ? 'selected' : ''; ?>>A1B+ (A1B Subtype)</option>
+                                        <option value="A2B-" <?php echo ($bloodGroup ?? '') === 'A2B-' ? 'selected' : ''; ?>>A2B- (A2B Subtype)</option>
+                                        <option value="A2B+" <?php echo ($bloodGroup ?? '') === 'A2B+' ? 'selected' : ''; ?>>A2B+ (A2B Subtype)</option>
+                                    </optgroup>
+                                </select>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle text-info"></i>
+                                    Choose standard groups for general requests. Select subtypes only if specifically required by medical staff.
+                                </div>
+                                <div class="invalid-feedback">Please select the required blood group.</div>
                             </div>
                             
                             <div class="col-md-6 mb-3">
@@ -493,11 +657,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-danger btn-lg">
-                                <i class="fas fa-paper-plane me-2"></i>Submit Blood Request
+                            <button type="submit" class="btn btn-danger btn-lg" id="submitBtn">
+                                <span class="btn-text">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Blood Request
+                                </span>
                             </button>
                         </div>
                     </form>
+                    
+                    <div class="text-center mt-4 pt-3 border-top">
+                        <p class="text-muted mb-2">Already submitted a request?</p>
+                        <a href="../requestor/login.php" class="btn btn-outline-danger">
+                            <i class="fas fa-search me-2"></i>Track Your Requests
+                        </a>
+                    </div>
                     
                     <div class="text-center mt-3">
                         <p class="text-muted mb-2">
@@ -509,9 +682,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
         </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Enhanced Page Loader -->
+    <div class="loader-overlay" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-blood"></div>
+            <div class="loader-brand">GASC Blood Bridge</div>
+            <div class="loader-text">Processing Request...</div>
+            <div class="progress-loader"></div>
+        </div>
+    </div>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('requestForm');
@@ -526,12 +709,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
             
-            // Form submission
+            // Form validation
             form.addEventListener('submit', function(e) {
-                if (!form.checkValidity()) {
+                // Check form validity
+                const isValid = form.checkValidity();
+                
+                if (!isValid) {
                     e.preventDefault();
                     e.stopPropagation();
+                    form.classList.add('was-validated');
+                    return;
                 }
+                
                 form.classList.add('was-validated');
             });
             

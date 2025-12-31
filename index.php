@@ -1,5 +1,10 @@
 <?php
+// Set timezone first before any other operations
+require_once 'config/timezone.php';
+
 session_start();
+require_once 'config/database.php';
+require_once 'config/system-settings.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,6 +21,133 @@ session_start();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
+    
+    <style>
+        /* Enhanced mobile responsiveness for landing page */
+        .hero-section {
+            height: 100vh !important;
+            padding-top: 76px;
+            box-sizing: border-box;
+        }
+        
+        .hero-row {
+            height: calc(100vh - 76px);
+            margin: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-section {
+                padding-top: 66px !important; /* Smaller navbar on mobile */
+            }
+            
+            .hero-row {
+                height: calc(100vh - 66px);
+                padding: 1rem 0;
+            }
+            
+            .hero-content h1 {
+                font-size: 2rem !important;
+            }
+            
+            .hero-content .lead {
+                font-size: 1rem !important;
+                margin-bottom: 2rem !important;
+            }
+            
+            .hero-actions .btn {
+                min-width: 180px;
+                font-size: 0.9rem;
+                padding: 0.75rem 1.5rem;
+            }
+            
+            .hero-stats {
+                padding: 1.5rem !important;
+                margin-top: 2rem !important;
+            }
+            
+            .hero-stats .stat-item h3 {
+                font-size: 2rem !important;
+            }
+            
+            .section-title {
+                font-size: 1.75rem !important;
+            }
+            
+            .about-content h3 {
+                font-size: 1.25rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .hero-section {
+                padding-top: 70px !important;
+                padding-bottom: 1rem !important;
+            }
+            
+            .hero-row {
+                padding: 1rem 0;
+            }
+            
+            .hero-content h1 {
+                font-size: 1.75rem !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .hero-content .lead {
+                font-size: 0.95rem !important;
+                margin-bottom: 1.5rem !important;
+            }
+            
+            .hero-actions {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+                margin-bottom: 1.5rem !important;
+            }
+            
+            .hero-actions .btn {
+                min-width: 100%;
+                font-size: 0.85rem;
+                padding: 0.75rem 1.25rem;
+            }
+            
+            .hero-features {
+                margin-top: 1.5rem !important;
+            }
+            
+            .hero-features .feature-item {
+                padding: 0.75rem !important;
+            }
+            
+            .hero-badge {
+                font-size: 0.8rem !important;
+                padding: 0.4rem 1.2rem !important;
+            }
+            
+            .section-title {
+                font-size: 1.5rem !important;
+            }
+        }
+        
+        @media (max-height: 600px) {
+            .hero-content h1 {
+                font-size: 1.5rem !important;
+                margin-bottom: 0.75rem !important;
+            }
+            
+            .hero-content .lead {
+                font-size: 0.9rem !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .hero-features {
+                margin-top: 1rem !important;
+            }
+            
+            .hero-features .feature-item {
+                padding: 0.5rem !important;
+            }
+        }
+    </style>
 </head>
 <body class="landing-page">
     <!-- Navigation -->
@@ -52,32 +184,78 @@ session_start();
         </div>
     </nav>
 
+    <!-- Session Timeout Alert -->
+    <?php if (isset($_GET['timeout']) && $_GET['timeout'] == '1'): ?>
+        <div class="alert alert-warning alert-dismissible fade show position-fixed" style="top: 76px; left: 50%; transform: translateX(-50%); z-index: 1050; min-width: 300px; max-width: 500px;">
+            <i class="fas fa-clock me-2"></i>
+            <strong>Session Expired:</strong> 
+            <?php echo isset($_GET['message']) ? htmlspecialchars($_GET['message']) : 'Your session has expired due to inactivity. Please log in again.'; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
     <!-- Hero Section -->
     <section id="home" class="hero-section">
         <div class="container">
-            <div class="row align-items-center min-vh-100">
-                <div class="col-lg-6">
-                    <div class="hero-content">
-                        <h1 class="display-4 fw-bold text-white mb-4">
+            <div class="row align-items-center hero-row">
+                <div class="col-12">
+                    <div class="hero-content text-center">
+                        <div class="hero-badge mb-4">
+                            <i class="fas fa-heart text-white me-2"></i>
+                            <span class="text-white-50">GASC Blood Donor Bridge</span>
+                        </div>
+                        <h1 class="display-3 fw-bold text-white mb-4">
                             Save Lives Through <span class="text-warning">Blood Donation</span>
                         </h1>
-                        <p class="lead text-white-50 mb-4">
-                            Join GASC Blood Donor Bridge - where compassion meets technology. 
+                        <p class="lead text-white-50 mb-5 mx-auto" style="max-width: 600px;">
+                            Join our life-saving community where compassion meets technology. 
                             Connect with those in need and become a hero in someone's story.
                         </p>
-                        <div class="d-grid d-md-flex gap-3">
-                            <a href="donor/register.php" class="btn btn-danger btn-lg px-4">
+                        <div class="hero-actions d-flex flex-column flex-md-row gap-3 justify-content-center align-items-center">
+                            <?php if (SystemSettings::areRegistrationsAllowed()): ?>
+                            <a href="donor/register.php" class="btn btn-danger btn-lg px-5 py-3">
                                 <i class="fas fa-heart me-2"></i>Become A Donor
                             </a>
-                            <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-4">
+                            <?php else: ?>
+                            <button class="btn btn-secondary btn-lg px-5 py-3" disabled title="New registrations are currently disabled">
+                                <i class="fas fa-heart me-2"></i>Registration Disabled
+                            </button>
+                            <?php endif; ?>
+                            <a href="request/blood-request.php" class="btn btn-outline-light btn-lg px-5 py-3">
                                 <i class="fas fa-plus-circle me-2"></i>Request For Blood
                             </a>
+                            <a href="requestor/login.php" class="btn btn-warning btn-lg px-5 py-3">
+                                <i class="fas fa-search me-2"></i>Track Requests
+                            </a>
                         </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="hero-image text-center">
-                        <img src="assets/images/hero-blood-donation.png" alt="Blood Donation Medical Equipment" class="hero-logo">
+                        <div class="hero-features mt-5">
+                            <div class="row text-center justify-content-center">
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-shield-alt text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">Safe & Secure</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-clock text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">24/7 Available</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-users text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">Trusted Community</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6 mb-3">
+                                    <div class="feature-item">
+                                        <i class="fas fa-mobile-alt text-warning fs-3 mb-2"></i>
+                                        <p class="text-white-50 small mb-0">Easy to Use</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -316,7 +494,7 @@ session_start();
             <hr class="border-secondary my-2">
             <div class="row align-items-center">
                 <div class="col-md-6 col-12 text-center text-md-start">
-                    <p class="text-light mb-0 small">© 2025 GASC Blood Bridge. All rights reserved.</p>
+                    <p class="text-light mb-0 small">© 2026 GASC Blood Bridge. All rights reserved.</p>
                 </div>
                 <div class="col-md-6 col-12 text-center text-md-end">
                     <p class="text-light mb-0 small">Made with <i class="fas fa-heart text-danger"></i> for humanity</p>
@@ -364,5 +542,63 @@ session_start();
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/loading-manager.js"></script>
+    
+    <!-- Enhanced Page Loader -->
+    <div class="loader-overlay show" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-blood"></div>
+            <div class="loader-brand">GASC Blood Bridge</div>
+            <div class="loader-text">Welcome to Blood Donation...</div>
+            <div class="progress-loader"></div>
+        </div>
+    </div>
+    
+    <!-- Auto-close hamburger menu script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Loading manager will handle the page loader automatically
+            
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('#navbarNav');
+            const navLinks = document.querySelectorAll('#navbarNav .nav-link');
+            
+            // Auto-close when clicking on navigation links
+            navLinks.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (navbarCollapse.classList.contains('show')) {
+                        const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                            toggle: false
+                        });
+                        bsCollapse.hide();
+                    }
+                });
+            });
+            
+            // Auto-close when clicking outside the navbar
+            document.addEventListener('click', function(event) {
+                const isClickInsideNav = navbarCollapse.contains(event.target) || navbarToggler.contains(event.target);
+                
+                if (!isClickInsideNav && navbarCollapse.classList.contains('show')) {
+                    const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                        toggle: false
+                    });
+                    bsCollapse.hide();
+                }
+            });
+            
+            // Auto-close when scrolling (optional - uncomment if desired)
+            /*
+            window.addEventListener('scroll', function() {
+                if (navbarCollapse.classList.contains('show')) {
+                    const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+                        toggle: false
+                    });
+                    bsCollapse.hide();
+                }
+            });
+            */
+        });
+    </script>
 </body>
 </html>

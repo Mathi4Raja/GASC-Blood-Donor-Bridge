@@ -1,5 +1,9 @@
 <?php
+// Set timezone first before any other operations
+require_once '../config/timezone.php';
+
 require_once '../config/database.php';
+require_once '../config/system-settings.php';
 
 // Redirect if already logged in
 if (isLoggedIn() && $_SESSION['user_type'] === 'donor') {
@@ -14,9 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Invalid security token. Please try again.');
         }
         
-        // Rate limiting
-        if (!checkRateLimit('donor_login', 5, 300)) {
-            throw new Exception('Too many login attempts. Please try again later.');
+        // Rate limiting with system settings
+        $maxLoginAttempts = SystemSettings::getMaxLoginAttempts();
+        if (!checkRateLimit('donor_login', $maxLoginAttempts, 300)) {
+            throw new Exception("Too many login attempts. Please try again later.");
         }
         
         $email = sanitizeInput($_POST['email'] ?? '');
@@ -51,7 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Your account has been deactivated. Please contact support.');
         }
         
-        if (!$user['email_verified']) {
+        // Check email verification only if required by admin settings
+        if (SystemSettings::isEmailVerificationRequired() && !$user['email_verified']) {
             throw new Exception('Please verify your email address before logging in.');
         }
         
@@ -141,7 +147,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="login-card">
                 <div class="login-header">
                     <div class="d-flex align-items-center justify-content-center mb-3">
-                        <img src="../assets/images/gobi-arts-science-logo.png" alt="GASC Logo" style="height: 50px;" class="me-2">
                         <h2 class="text-danger fw-bold mb-0">GASC Blood Bridge</h2>
                     </div>
                     <h3 class="text-dark mb-2">Donor Login</h3>
@@ -202,10 +207,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                     
                     <div class="text-center mt-4 pt-3 border-top">
+                        <?php if (SystemSettings::areRegistrationsAllowed()): ?>
                         <p class="text-muted mb-2">
                             Don't have an account? 
                             <a href="register.php" class="text-danger text-decoration-none fw-semibold">Register here</a>
                         </p>
+                        <?php else: ?>
+                        <p class="text-muted mb-2">
+                            <i class="fas fa-info-circle text-warning me-1"></i>
+                            New registrations are currently disabled.
+                        </p>
+                        <?php endif; ?>
                         <a href="../index.php" class="text-muted text-decoration-none">
                             <i class="fas fa-arrow-left me-1"></i>Back to Home
                         </a>
@@ -216,6 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function togglePassword() {
             const passwordInput = document.getElementById('password');
@@ -233,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         function showForgotPassword() {
-            alert('Password reset functionality will be implemented soon. Please contact support for assistance.');
+            window.location.href = 'forgot-password.php';
         }
         
         // Auto-focus email input

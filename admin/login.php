@@ -30,6 +30,9 @@
         }
     </style>
 <?php
+// Set timezone first before any other operations
+require_once '../config/timezone.php';
+
 require_once '../config/database.php';
 
 // Redirect if already logged in
@@ -45,9 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Invalid security token. Please try again.');
         }
         
-        // Rate limiting
-        if (!checkRateLimit('admin_login', 5, 300)) {
-            throw new Exception('Too many login attempts. Please try again later.');
+        // Rate limiting with system settings
+        require_once '../config/system-settings.php';
+        $maxLoginAttempts = SystemSettings::getMaxLoginAttempts();
+        if (!checkRateLimit('admin_login', $maxLoginAttempts, 300)) {
+            throw new Exception("Too many login attempts. Please try again later.");
         }
         
         $email = sanitizeInput($_POST['email'] ?? '');
@@ -197,9 +202,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: all 0.3s ease;
         }
         
+        /* Add padding for password field with toggle button */
+        .form-floating.position-relative .form-control {
+            padding-right: 50px;
+        }
+        
+        /* Adjust when Bootstrap validation is active */
+        .was-validated .form-floating.position-relative .form-control:valid {
+            padding-right: 80px;
+        }
+        
         .form-floating .form-control:focus {
             border-color: #dc2626;
             box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
+        }
+        
+        /* Hide validation icons */
+        .form-control {
+            background-image: none !important;
+        }
+        
+        .form-control:valid {
+            background-image: none !important;
+        }
+        
+        .form-control:invalid {
+            background-image: none !important;
+        }
+        
+        .was-validated .form-control:valid {
+            background-image: none !important;
+        }
+        
+        .was-validated .form-control:invalid {
+            background-image: none !important;
         }
         
         .form-floating .form-select {
@@ -426,7 +462,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="email" class="form-control" id="email" name="email" 
                                    value="<?php echo $email ?? ''; ?>" placeholder="admin@gasc.edu" required>
                             <label for="email">
-                                <i class="fas fa-envelope text-danger me-1"></i>Email Address
+                                Email Address
                             </label>
                             <div class="invalid-feedback">Please provide a valid email address.</div>
                         </div>
@@ -436,7 +472,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="password" class="form-control" id="password" name="password" 
                                    placeholder="Password" required>
                             <label for="password">
-                                <i class="fas fa-lock text-danger me-1"></i>Password
+                                Password
                             </label>
                             <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y me-2" 
                                     id="togglePassword" style="z-index: 10;">
@@ -454,7 +490,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <!-- Forgot Password -->
                         <div class="text-center">
-                            <a href="#" class="text-danger text-decoration-none">
+                            <a href="forgot-password.php" class="text-danger text-decoration-none">
                                 <i class="fas fa-key me-1"></i>Forgot Password?
                             </a>
                         </div>
@@ -467,6 +503,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('adminLoginForm');

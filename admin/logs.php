@@ -58,38 +58,38 @@ $params = [];
 $types = '';
 
 if ($actionFilter !== 'all') {
-    $whereConditions[] = 'action LIKE ?';
+    $whereConditions[] = 'al.action LIKE ?';
     $params[] = "%{$actionFilter}%";
     $types .= 's';
 }
 
 if ($userFilter !== 'all') {
     if ($userFilter === 'system') {
-        $whereConditions[] = 'user_id IS NULL';
+        $whereConditions[] = 'al.user_id IS NULL';
     } else {
-        $whereConditions[] = 'user_id IS NOT NULL';
+        $whereConditions[] = 'al.user_id IS NOT NULL';
     }
 }
 
 if ($dateFilter !== 'all') {
     switch ($dateFilter) {
         case 'today':
-            $whereConditions[] = 'DATE(created_at) = CURDATE()';
+            $whereConditions[] = 'DATE(al.created_at) = CURDATE()';
             break;
         case 'yesterday':
-            $whereConditions[] = 'DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)';
+            $whereConditions[] = 'DATE(al.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)';
             break;
         case 'week':
-            $whereConditions[] = 'created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+            $whereConditions[] = 'al.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
             break;
         case 'month':
-            $whereConditions[] = 'created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+            $whereConditions[] = 'al.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
             break;
     }
 }
 
 if (!empty($search)) {
-    $whereConditions[] = '(action LIKE ? OR details LIKE ? OR ip_address LIKE ?)';
+    $whereConditions[] = '(al.action LIKE ? OR al.details LIKE ? OR al.ip_address LIKE ?)';
     $searchParam = "%{$search}%";
     $params = array_merge($params, [$searchParam, $searchParam, $searchParam]);
     $types .= 'sss';
@@ -98,7 +98,10 @@ if (!empty($search)) {
 $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
 
 // Get total count
-$countQuery = "SELECT COUNT(*) as total FROM activity_logs {$whereClause}";
+$countQuery = "SELECT COUNT(*) as total 
+               FROM activity_logs al 
+               LEFT JOIN users u ON al.user_id = u.id 
+               {$whereClause}";
 $countStmt = $db->prepare($countQuery);
 if (!empty($params)) {
     $countStmt->bind_param($types, ...$params);
@@ -126,6 +129,79 @@ $types .= 'ii';
 $logsStmt->bind_param($types, ...$params);
 $logsStmt->execute();
 $logs = $logsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Handle CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    // Clear any output that might have been sent and stop output buffering
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    $filename = 'activity_logs_export_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    $output = fopen('php://output', 'w');
+    
+    // CSV Headers
+    $headers = [
+        'ID', 'User Name', 'User Email', 'User Type', 'Action', 
+        'Details', 'IP Address', 'User Agent', 'Created At'
+    ];
+    fputcsv($output, $headers);
+    
+    // Get all logs for export (without pagination)
+    $exportQuery = "SELECT 
+                      al.*,
+                      u.name as user_name,
+                      u.email as user_email,
+                      u.user_type
+                    FROM activity_logs al
+                    LEFT JOIN users u ON al.user_id = u.id
+                    {$whereClause}
+                    ORDER BY al.created_at DESC";
+    
+    $exportStmt = $db->prepare($exportQuery);
+    if (!empty($params) && strlen($types) > 2) {
+        // Remove the limit and offset parameters for export
+        $exportParams = array_slice($params, 0, -2);
+        $exportTypes = substr($types, 0, -2);
+        
+        // Only bind parameters if we have both types and parameters
+        if (!empty($exportTypes) && !empty($exportParams)) {
+            $exportStmt->bind_param($exportTypes, ...$exportParams);
+        }
+    }
+    $exportStmt->execute();
+    $exportLogs = $exportStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Write data rows
+    foreach ($exportLogs as $log) {
+        // Clean all values to ensure no HTML or extra whitespace
+        $row = [
+            intval($log['id']),
+            trim($log['user_name'] ?? 'System'),
+            trim($log['user_email'] ?? 'N/A'),
+            trim($log['user_type'] ?? 'System'),
+            trim($log['action']),
+            trim($log['details'] ?? ''),
+            trim($log['ip_address'] ?? ''),
+            trim($log['user_agent'] ?? ''),
+            $log['created_at']
+        ];
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    
+    // Log the export activity
+    logActivity($_SESSION['user_id'], 'logs_exported', "Exported " . count($exportLogs) . " activity logs to CSV");
+    
+    exit;
+}
 
 // Get action types for filter
 $actionTypes = $db->query("SELECT DISTINCT action FROM activity_logs ORDER BY action")->fetch_all(MYSQLI_ASSOC);
@@ -229,11 +305,97 @@ $recentActions = $db->query("
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 0.8rem;
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
+        
+        /* General text overflow protection */
+        .log-entry .text-muted,
+        .log-entry small {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+        
+        .log-entry .flex-grow-1 {
+            min-width: 0; /* Allow flex item to shrink below its content size */
+            overflow: hidden;
+        }
+        
+        .rounded-pill {
+            border-radius: 50rem !important;
+            transition: all 0.3s ease;
+        }
+        
+        .rounded-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         
         @media (max-width: 768px) {
             .log-entry {
                 padding: 10px;
+            }
+            
+            .log-entry .d-flex {
+                flex-direction: column;
+            }
+            
+            .log-entry .text-end {
+                text-align: left !important;
+                margin-top: 10px;
+                margin-left: 0 !important;
+            }
+            
+            .log-entry .flex-grow-1 {
+                width: 100%;
+                min-width: 0; /* Allow shrinking */
+            }
+            
+            .log-entry .text-muted.small {
+                word-wrap: break-word;
+                word-break: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+                max-width: 100%;
+            }
+            
+            .ip-address {
+                font-size: 0.7rem;
+                word-break: break-all;
+                max-width: 100%;
+            }
+            
+            .action-badge {
+                font-size: 0.65rem;
+                padding: 3px 6px;
+            }
+            
+            .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 0.5rem !important;
+            }
+            
+            .rounded-pill {
+                width: 100%;
+            }
+            
+            /* Fix for long email addresses and user names */
+            .log-entry small.text-muted {
+                word-break: break-all;
+                overflow-wrap: break-word;
+            }
+            
+            /* Ensure badges don't overflow */
+            .badge {
+                word-break: break-word;
+                white-space: normal;
+            }
+            
+            /* Fix for action badges container */
+            .d-flex.align-items-center {
+                flex-wrap: wrap;
+                gap: 0.25rem;
             }
         }
     </style>
@@ -304,20 +466,15 @@ $recentActions = $db->query("
                     <h1 class="h2">
                         <i class="fas fa-clipboard-list text-danger me-2"></i>Activity Logs
                     </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
-                                <i class="fas fa-print me-1"></i>Print
+                    <div class="d-flex gap-2 mb-2 mb-md-0">
+                        <button type="button" class="btn btn-success rounded-pill px-4" onclick="exportData()">
+                            <i class="fas fa-download me-2"></i>Export CSV
+                        </button>
+                        <?php if ($_SESSION['user_type'] === 'admin'): ?>
+                            <button type="button" class="btn btn-danger rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
+                                <i class="fas fa-trash me-2"></i>Clear Old Logs
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData()">
-                                <i class="fas fa-download me-1"></i>Export
-                            </button>
-                            <?php if ($_SESSION['user_type'] === 'admin'): ?>
-                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
-                                    <i class="fas fa-trash me-1"></i>Clear Old Logs
-                                </button>
-                            <?php endif; ?>
-                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -612,6 +769,7 @@ $recentActions = $db->query("
     <?php endif; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
         function exportData() {
             const params = new URLSearchParams(window.location.search);

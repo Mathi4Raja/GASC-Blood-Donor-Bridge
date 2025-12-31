@@ -1,0 +1,42 @@
+{
+    "name": "gasc/blood-donor-bridge",
+    "description": "GASC Blood Donor Bridge - A comprehensive blood donation management system for educational institutions",
+    "type": "project",
+    "keywords": ["blood-donation", "healthcare", "php", "mysql", "education"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "GASC Development Team",
+            "email": "admin@gasc.edu"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "phpmailer/phpmailer": "^6.8",
+        "ifsnop/mysqldump-php": "^2.9"
+    },
+    "require-dev": {
+        "php": ">=7.2"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "7.2"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "GASC\\BloodBridge\\": "src/"
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "echo 'GASC Blood Bridge dependencies installed successfully'"
+        ],
+        "post-update-cmd": [
+            "echo 'GASC Blood Bridge dependencies updated successfully'"
+        ]
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

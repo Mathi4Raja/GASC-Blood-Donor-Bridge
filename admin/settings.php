@@ -1,5 +1,8 @@
 <?php
 require_once '../config/database.php';
+require_once '../config/email.php';
+require_once '../config/env.php';
+require_once '../config/system-settings.php';
 
 // Check if user is logged in as admin
 requireRole(['admin']);
@@ -19,13 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'site_name' => $_POST['site_name'] ?? 'GASC Blood Bridge',
                 'admin_email' => $_POST['admin_email'] ?? '',
                 'max_requests_per_user' => (int)($_POST['max_requests_per_user'] ?? 5),
-                'request_expiry_days' => (int)($_POST['request_expiry_days'] ?? 30),
-                'donation_cooldown_days' => (int)($_POST['donation_cooldown_days'] ?? 56),
+                'max_login_attempts' => (int)($_POST['max_login_attempts'] ?? 5),
                 'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
                 'auto_expire_requests' => isset($_POST['auto_expire_requests']) ? 1 : 0,
                 'require_email_verification' => isset($_POST['require_email_verification']) ? 1 : 0,
-                'maintenance_mode' => isset($_POST['maintenance_mode']) ? 1 : 0,
-                'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0
+                'allow_registrations' => isset($_POST['allow_registrations']) ? 1 : 0,
+                'auto_backup_enabled' => isset($_POST['auto_backup_enabled']) ? 1 : 0,
+                'blood_matching_mode' => $_POST['blood_matching_mode'] ?? 'acceptable',
+                'blood_subtype_awareness' => isset($_POST['blood_subtype_awareness']) ? 1 : 0
             ];
             
             foreach ($settings as $key => $value) {
@@ -47,73 +51,160 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $messageType = 'danger';
         }
         
-    } elseif ($action === 'clear_logs') {
-        $days = (int)($_POST['clear_days'] ?? 30);
-        
-        try {
-            $stmt = $db->prepare("DELETE FROM activity_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)");
-            $stmt->bind_param('i', $days);
-            $stmt->execute();
-            
-            $deleted = $stmt->affected_rows;
-            logActivity($_SESSION['user_id'], 'clear_logs', "Cleared logs older than $days days ($deleted records)");
-            
-            $message = "Successfully deleted $deleted log records older than $days days.";
-            $messageType = 'success';
-            
-        } catch (Exception $e) {
-            $message = 'Error clearing logs: ' . $e->getMessage();
-            $messageType = 'danger';
-        }
-        
     } elseif ($action === 'backup_database') {
         try {
-            $backup_file = '../database/backup_' . date('Y-m-d_H-i-s') . '.sql';
+            $startDate = $_POST['start_date'] ?? null;
+            $endDate = $_POST['end_date'] ?? null;
             
-            // Get database credentials from config
-            $config = include '../config/database.php';
+            // Validate date range if provided
+            $dateRange = null;
+            if ($startDate && $endDate) {
+                $start = DateTime::createFromFormat('Y-m-d', $startDate);
+                $end = DateTime::createFromFormat('Y-m-d', $endDate);
+                
+                if (!$start || !$end) {
+                    throw new Exception('Invalid date format provided');
+                }
+                
+                if ($start > $end) {
+                    throw new Exception('Start date cannot be after end date');
+                }
+                
+                $dateRange = [
+                    'start' => $start->format('Y-m-d'),
+                    'end' => $end->format('Y-m-d'),
+                    'start_formatted' => $start->format('M j, Y'),
+                    'end_formatted' => $end->format('M j, Y'),
+                    'duration_years' => $start->diff($end)->format('%y'),
+                    'duration_months' => $start->diff($end)->format('%m'),
+                    'duration_days' => $start->diff($end)->days
+                ];
+            }
             
-            $command = "mysqldump --user={$config['username']} --password={$config['password']} --host={$config['host']} {$config['database']} > $backup_file";
+            $result = createDatabaseBackup('manual', $dateRange);
             
-            $result = shell_exec($command);
-            
-            if (file_exists($backup_file)) {
-                logActivity($_SESSION['user_id'], 'backup_database', 'Created database backup: ' . basename($backup_file));
-                $message = 'Database backup created successfully: ' . basename($backup_file);
+            if ($result['success']) {
+                $backupInfo = $result['filename'] . ' (' . $result['size_mb'] . ' MB)';
+                if ($dateRange) {
+                    $backupInfo .= ' [Period: ' . $dateRange['start_formatted'] . ' to ' . $dateRange['end_formatted'] . ']';
+                }
+                logActivity($_SESSION['user_id'], 'backup_database', 'Manual database backup created: ' . $backupInfo);
+                $message = 'Manual database backup created successfully: ' . $backupInfo;
                 $messageType = 'success';
             } else {
-                $message = 'Failed to create database backup. Please check server permissions.';
-                $messageType = 'warning';
+                throw new Exception($result['message']);
             }
             
         } catch (Exception $e) {
-            $message = 'Error creating backup: ' . $e->getMessage();
+            error_log("Manual backup exception: " . $e->getMessage());
+            $message = 'Error creating manual backup: ' . $e->getMessage();
             $messageType = 'danger';
         }
         
-    } elseif ($action === 'test_email') {
-        $test_email = $_POST['test_email'] ?? '';
-        
-        if (filter_var($test_email, FILTER_VALIDATE_EMAIL)) {
-            try {
-                $subject = 'GASC Blood Bridge - Email Test';
-                $body = 'This is a test email from GASC Blood Bridge system. If you receive this, email configuration is working correctly.';
-                
-                if (sendEmail($test_email, $subject, $body)) {
-                    $message = 'Test email sent successfully to ' . $test_email;
-                    $messageType = 'success';
-                } else {
-                    $message = 'Failed to send test email. Please check email configuration.';
-                    $messageType = 'danger';
-                }
-                
-            } catch (Exception $e) {
-                $message = 'Error sending test email: ' . $e->getMessage();
-                $messageType = 'danger';
+    } elseif ($action === 'auto_backup_now') {
+        try {
+            $result = performAutomaticDatabaseBackup();
+            
+            if ($result['success']) {
+                $message = $result['message'];
+                $messageType = 'success';
+            } else {
+                throw new Exception($result['message']);
             }
-        } else {
-            $message = 'Please enter a valid email address.';
-            $messageType = 'warning';
+            
+        } catch (Exception $e) {
+            error_log("Force automatic backup exception: " . $e->getMessage());
+            $message = 'Error performing automatic backup: ' . $e->getMessage();
+            $messageType = 'danger';
+        }
+        
+    } elseif ($action === 'delete_data') {
+        $start_date = $_POST['start_date'] ?? '';
+        $end_date = $_POST['end_date'] ?? '';
+        
+        try {
+            if (empty($start_date) || empty($end_date)) {
+                throw new Exception('Both start and end dates are required.');
+            }
+            
+            // Validate date format and range
+            $startDateTime = DateTime::createFromFormat('Y-m-d', $start_date);
+            $endDateTime = DateTime::createFromFormat('Y-m-d', $end_date);
+            
+            if (!$startDateTime || !$endDateTime) {
+                throw new Exception('Invalid date format provided.');
+            }
+            
+            if ($startDateTime > $endDateTime) {
+                throw new Exception('Start date cannot be after end date.');
+            }
+            
+            if ($endDateTime > new DateTime()) {
+                throw new Exception('End date cannot be in the future.');
+            }
+            
+            // Calculate date range info
+            $dateDiff = $startDateTime->diff($endDateTime);
+            $totalDays = $dateDiff->days;
+            $years = $dateDiff->y;
+            $months = $dateDiff->m;
+            $days = $dateDiff->d;
+            
+            // Format date range for logging
+            $dateRangeText = $startDateTime->format('M j, Y') . ' to ' . $endDateTime->format('M j, Y');
+            $durationText = '';
+            if ($years > 0) $durationText .= $years . ' year' . ($years > 1 ? 's' : '') . ' ';
+            if ($months > 0) $durationText .= $months . ' month' . ($months > 1 ? 's' : '') . ' ';
+            if ($days > 0) $durationText .= $days . ' day' . ($days > 1 ? 's' : '');
+            $durationText = trim($durationText);
+            
+            // Get mysqli connection and start transaction
+            $mysqli = $db->getConnection();
+            $mysqli->autocommit(false);
+            
+            try {
+                // Prepare date range variables for bind_param
+                $startDateTime = $start_date . ' 00:00:00';
+                $endDateTime = $end_date . ' 23:59:59';
+                
+                // Delete user data (excluding admins and moderators)
+                $deleteUsersSQL = "DELETE FROM users WHERE user_type = 'donor' AND created_at BETWEEN ? AND ?";
+                $stmt = $db->prepare($deleteUsersSQL);
+                $stmt->bind_param('ss', $startDateTime, $endDateTime);
+                $stmt->execute();
+                $deletedUsers = $stmt->affected_rows;
+                
+                // Delete blood requests
+                $deleteRequestsSQL = "DELETE FROM blood_requests WHERE created_at BETWEEN ? AND ?";
+                $stmt = $db->prepare($deleteRequestsSQL);
+                $stmt->bind_param('ss', $startDateTime, $endDateTime);
+                $stmt->execute();
+                $deletedRequests = $stmt->affected_rows;
+                
+                // Keep activity logs for audit trail - do not delete
+                $deletedLogs = 0;
+                
+                // Commit transaction
+                $mysqli->commit();
+                $mysqli->autocommit(true);
+                
+                // Log the deletion activity
+                $deletionDetails = "Data deletion completed for period: {$dateRangeText} ({$durationText}). Deleted: {$deletedUsers} users, {$deletedRequests} requests. Activity logs preserved for audit trail.";
+                logActivity($_SESSION['user_id'], 'data_deletion', $deletionDetails);
+                
+                $message = "Data deletion completed successfully for period: {$dateRangeText} ({$durationText}). Deleted: {$deletedUsers} donor accounts, {$deletedRequests} blood requests. Activity logs preserved for audit trail.";
+                $messageType = 'success';
+                
+            } catch (Exception $dbError) {
+                $mysqli->rollback();
+                $mysqli->autocommit(true);
+                throw new Exception('Database error during deletion: ' . $dbError->getMessage());
+            }
+            
+        } catch (Exception $e) {
+            error_log("Data deletion exception: " . $e->getMessage());
+            $message = 'Error deleting data: ' . $e->getMessage();
+            $messageType = 'danger';
         }
         
     } elseif ($action === 'change_password') {
@@ -177,12 +268,10 @@ $defaults = [
     'site_name' => 'GASC Blood Bridge',
     'admin_email' => '',
     'max_requests_per_user' => 5,
-    'request_expiry_days' => 30,
-    'donation_cooldown_days' => 56,
+    'max_login_attempts' => 5,
     'email_notifications' => 1,
     'auto_expire_requests' => 1,
     'require_email_verification' => 1,
-    'maintenance_mode' => 0,
     'allow_registrations' => 1
 ];
 
@@ -204,17 +293,42 @@ $stats['database_size'] = $db->query("
     WHERE table_schema = DATABASE()
 ")->fetch_assoc()['size_mb'] ?? 0;
 
-// Get recent backups
+// Get recent backups (4 manual + 1 automatic = 5 total)
 $backup_files = [];
+$manual_backups = [];
+$auto_backups = [];
+
 if (is_dir('../database/')) {
     $files = glob('../database/backup_*.sql');
     foreach ($files as $file) {
-        $backup_files[] = [
+        $backup_info = [
             'name' => basename($file),
             'size' => filesize($file),
-            'date' => filemtime($file)
+            'date' => filemtime($file),
+            'type' => (strpos(basename($file), '_automatic_') !== false) ? 'auto' : 'manual'
         ];
+        
+        if ($backup_info['type'] === 'auto') {
+            $auto_backups[] = $backup_info;
+        } else {
+            $manual_backups[] = $backup_info;
+        }
     }
+    
+    // Sort by date (newest first)
+    usort($auto_backups, function($a, $b) {
+        return $b['date'] - $a['date'];
+    });
+    usort($manual_backups, function($a, $b) {
+        return $b['date'] - $a['date'];
+    });
+    
+    // Take 1 most recent automatic backup and 4 most recent manual backups
+    $selected_auto = array_slice($auto_backups, 0, 1);
+    $selected_manual = array_slice($manual_backups, 0, 4);
+    
+    // Combine and sort by date again
+    $backup_files = array_merge($selected_auto, $selected_manual);
     usort($backup_files, function($a, $b) {
         return $b['date'] - $a['date'];
     });
@@ -262,11 +376,52 @@ if (is_dir('../database/')) {
             border: 1px solid #e9ecef;
             border-radius: 8px;
             margin-bottom: 10px;
+            overflow: hidden;
+            word-wrap: break-word;
+        }
+        
+        .backup-item .small {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
         
         .form-switch .form-check-input {
             width: 2.5em;
             height: 1.25em;
+            margin-right: 0.75rem; /* spacing between toggle and icon/label */
+        }
+        
+        .system-features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
+        }
+        
+        .feature-item:hover {
+            background: rgba(0,0,0,0.05);
+            transform: translateY(-1px);
+        }
+        
+        .feature-item .form-check {
+            margin-bottom: 0;
+            width: 100%;
+        }
+        
+        .feature-item .form-check-label {
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
         }
         
         @media (max-width: 768px) {
@@ -277,6 +432,150 @@ if (is_dir('../database/')) {
             .settings-section {
                 padding: 15px 0;
             }
+            
+            .system-features-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .backup-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .backup-item .small {
+                word-break: break-all;
+                overflow-wrap: break-word;
+                max-width: 100%;
+            }
+            
+            .feature-item .form-check-label {
+                font-size: 0.9rem;
+                word-break: break-word;
+            }
+            
+            /* Fix for long system setting texts */
+            .settings-card .form-text,
+            .settings-card .text-muted {
+                word-break: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+            }
+        }
+        
+        /* Custom Popover Styles */
+        .backup-date-popover {
+            max-width: 300px;
+        }
+        
+        .backup-date-popover .popover-body {
+            padding: 0;
+        }
+        
+        .backup-date-range-form {
+            border-radius: 8px;
+        }
+        
+        .backup-date-range-form .form-control-sm {
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .backup-date-range-form .form-control-sm:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .backup-date-range-form .form-label {
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .backup-date-range-form .btn-sm {
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out;
+        }
+        
+        .backup-date-range-form .btn-primary {
+            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+            border: none;
+        }
+        
+        .backup-date-range-form .btn-primary:hover {
+            background: linear-gradient(135deg, #0b5ed7, #0a58ca);
+            transform: translateY(-1px);
+        }
+        
+        .backup-date-range-form .btn-outline-secondary:hover {
+            transform: translateY(-1px);
+        }
+        
+        /* Delete Data Popover Styles */
+        .delete-date-popover {
+            max-width: 340px;
+        }
+        
+        .delete-date-popover .popover-body {
+            padding: 0;
+        }
+        
+        .delete-date-range-form {
+            border-radius: 8px;
+        }
+        
+        .delete-date-range-form .form-control-sm {
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .delete-date-range-form .form-control-sm:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+        }
+        
+        .delete-date-range-form .form-label {
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .delete-date-range-form .btn-sm {
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.15s ease-in-out;
+        }
+        
+        .delete-date-range-form .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            border: none;
+        }
+        
+        .delete-date-range-form .btn-danger:hover:not(:disabled) {
+            background: linear-gradient(135deg, #c82333, #bd2130);
+            transform: translateY(-1px);
+        }
+        
+        .delete-date-range-form .btn-danger:disabled {
+            background: #6c757d;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .delete-date-range-form .btn-outline-secondary:hover {
+            transform: translateY(-1px);
+        }
+        
+        .delete-date-range-form .alert-sm {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .delete-date-range-form .form-check-label {
+            font-size: 0.875rem;
+            color: #495057;
         }
     </style>
 </head>
@@ -429,76 +728,139 @@ if (is_dir('../database/')) {
                                     <div class="settings-section">
                                         <h6 class="text-primary">Request Limits</h6>
                                         <div class="row">
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <div class="mb-3">
-                                                    <label for="max_requests_per_user" class="form-label">Max Requests per User</label>
+                                                    <label for="max_requests_per_user" class="form-label">Max Requests per User per Day</label>
                                                     <input type="number" class="form-control" id="max_requests_per_user" name="max_requests_per_user" 
                                                            value="<?php echo $currentSettings['max_requests_per_user']; ?>" min="1" max="20">
                                                 </div>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <div class="mb-3">
-                                                    <label for="request_expiry_days" class="form-label">Request Expiry (Days)</label>
-                                                    <input type="number" class="form-control" id="request_expiry_days" name="request_expiry_days" 
-                                                           value="<?php echo $currentSettings['request_expiry_days']; ?>" min="1" max="365">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="donation_cooldown_days" class="form-label">Donation Cooldown (Days)</label>
-                                                    <input type="number" class="form-control" id="donation_cooldown_days" name="donation_cooldown_days" 
-                                                           value="<?php echo $currentSettings['donation_cooldown_days']; ?>" min="1" max="365">
+                                                    <label for="max_login_attempts" class="form-label">Max Login Attempts</label>
+                                                    <input type="number" class="form-control" id="max_login_attempts" name="max_login_attempts" 
+                                                           value="<?php echo $currentSettings['max_login_attempts']; ?>" min="3" max="10">
+                                                    <div class="form-text">Failed attempts before lockout</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <div class="settings-section">
-                                        <h6 class="text-primary">System Features</h6>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications" 
+                                        <h6 class="text-primary mb-4">
+                                            <i class="fas fa-cogs me-2"></i>System Features
+                                        </h6>
+                                        <div class="system-features-grid">
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications"
                                                            <?php echo $currentSettings['email_notifications'] ? 'checked' : ''; ?>>
                                                     <label class="form-check-label" for="email_notifications">
-                                                        Email Notifications
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="auto_expire_requests" name="auto_expire_requests" 
-                                                           <?php echo $currentSettings['auto_expire_requests'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="auto_expire_requests">
-                                                        Auto-expire Requests
-                                                    </label>
-                                                </div>
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="require_email_verification" name="require_email_verification" 
-                                                           <?php echo $currentSettings['require_email_verification'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="require_email_verification">
-                                                        Require Email Verification
+                                                        <i class="fas fa-envelope me-2 text-info"></i>Email Notifications
                                                     </label>
                                                 </div>
                                             </div>
-                                            <div class="col-md-6">
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="allow_registrations" name="allow_registrations" 
-                                                           <?php echo $currentSettings['allow_registrations'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="allow_registrations">
-                                                        Allow New Registrations
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="require_email_verification" name="require_email_verification"
+                                                           <?php echo $currentSettings['require_email_verification'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="require_email_verification">
+                                                        <i class="fas fa-shield-alt me-2 text-success"></i>Require Email Verification
                                                     </label>
                                                 </div>
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="maintenance_mode" name="maintenance_mode" 
-                                                           <?php echo $currentSettings['maintenance_mode'] ? 'checked' : ''; ?>>
-                                                    <label class="form-check-label" for="maintenance_mode">
-                                                        <span class="text-warning">Maintenance Mode</span>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="auto_expire_requests" name="auto_expire_requests"
+                                                           <?php echo $currentSettings['auto_expire_requests'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="auto_expire_requests">
+                                                        <i class="fas fa-clock me-2 text-warning"></i>Auto-expire Requests
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="allow_registrations" name="allow_registrations"
+                                                           <?php echo $currentSettings['allow_registrations'] ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="allow_registrations">
+                                                        <i class="fas fa-user-plus me-2 text-primary"></i>Allow New Registrations
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="auto_backup_enabled" name="auto_backup_enabled"
+                                                           <?php echo SystemSettings::get('auto_backup_enabled', 1) ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="auto_backup_enabled">
+                                                        <i class="fas fa-database me-2 text-info"></i>Automatic Backup
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="feature-item">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="blood_subtype_awareness" name="blood_subtype_awareness"
+                                                           <?php echo SystemSettings::get('blood_subtype_awareness', 1) ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label" for="blood_subtype_awareness">
+                                                        <i class="fas fa-dna me-2 text-danger"></i>Blood Subtype Awareness
                                                     </label>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <div class="d-grid">
+                                    <div class="settings-section">
+                                        <h6 class="text-primary mb-4">
+                                            <i class="fas fa-tint me-2"></i>Blood Matching Settings
+                                        </h6>
+                                        
+                                        <div class="mb-4">
+                                            <label class="form-label fw-semibold">Blood Group Matching Mode</label>
+                                            <div class="card border-0 bg-light p-3">
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="blood_matching_mode" id="blood_matching_acceptable" 
+                                                                   value="acceptable" <?php echo SystemSettings::get('blood_matching_mode', 'acceptable') === 'acceptable' ? 'checked' : ''; ?>>
+                                                            <label class="form-check-label" for="blood_matching_acceptable">
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fas fa-users text-success me-2"></i>
+                                                                    <div>
+                                                                        <div class="fw-bold text-success">Acceptable Matches</div>
+                                                                        <small class="text-muted">Show compatible blood groups<br>(e.g., O- can donate to all groups)</small>
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="blood_matching_mode" id="blood_matching_perfect" 
+                                                                   value="perfect" <?php echo SystemSettings::get('blood_matching_mode', 'acceptable') === 'perfect' ? 'checked' : ''; ?>>
+                                                            <label class="form-check-label" for="blood_matching_perfect">
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fas fa-bullseye text-warning me-2"></i>
+                                                                    <div>
+                                                                        <div class="fw-bold text-warning">Perfect Matches Only</div>
+                                                                        <small class="text-muted">Show exact blood group only<br>(e.g., O+ donors for O+ requests only)</small>
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mt-3 p-2 bg-white rounded">
+                                                    <div class="small text-muted">
+                                                        <strong>ℹ️ How this affects the system:</strong>
+                                                        <ul class="mb-0 mt-1">
+                                                            <li><strong>Acceptable Matches:</strong> A request for A+ blood will show O-, O+, A-, and A+ donors</li>
+                                                            <li><strong>Perfect Matches:</strong> A request for A+ blood will only show A+ donors</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>                                    <div class="d-grid">
                                         <button type="submit" class="btn btn-primary">
                                             <i class="fas fa-save me-2"></i>Save Settings
                                         </button>
@@ -557,26 +919,37 @@ if (is_dir('../database/')) {
                             </div>
                         </div>
                         
-                        <!-- Email Test -->
+                        <!-- Delete Data -->
                         <div class="card settings-card">
-                            <div class="card-header">
+                            <div class="card-header bg-danger text-white">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-envelope me-2"></i>Email Test
+                                    <i class="fas fa-trash-alt me-2"></i>Delete Data
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <form method="POST" action="">
-                                    <input type="hidden" name="action" value="test_email">
-                                    <div class="mb-3">
-                                        <label for="test_email" class="form-label">Test Email Address</label>
-                                        <input type="email" class="form-control" id="test_email" name="test_email" required>
-                                    </div>
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-outline-primary btn-sm">
-                                            <i class="fas fa-paper-plane me-1"></i>Send Test Email
-                                        </button>
-                                    </div>
-                                </form>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-danger w-100" 
+                                            data-bs-toggle="popover" 
+                                            data-bs-placement="bottom" 
+                                            data-bs-html="true" 
+                                            data-bs-content="" 
+                                            id="deleteDataBtn">
+                                        <i class="fas fa-trash-alt me-2"></i>Delete Data by Date Range
+                                    </button>
+                                </div>
+                                
+                                <div class="small text-muted">
+                                    <strong>What will be deleted:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Donor user accounts created in the selected period</li>
+                                        <li>Blood requests submitted in the selected period</li>
+                                    </ul>
+                                    <strong class="text-success mt-2 d-block">What will be preserved:</strong>
+                                    <ul class="mb-0 mt-1">
+                                        <li>Activity logs (kept for audit trail)</li>
+                                        <li>Admin and moderator accounts</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         
@@ -588,60 +961,106 @@ if (is_dir('../database/')) {
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <form method="POST" action="" class="mb-3">
-                                    <input type="hidden" name="action" value="backup_database">
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="fas fa-download me-1"></i>Create Backup
-                                        </button>
+                                <!-- Automatic Backup Status -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <h6 class="small text-muted mb-2">Automatic Backup Status</h6>
+                                        <div class="mb-2">
+                                            <span class="badge <?php echo SystemSettings::get('auto_backup_enabled') ? 'bg-success' : 'bg-secondary'; ?>">
+                                                <?php echo SystemSettings::get('auto_backup_enabled') ? 'Enabled' : 'Disabled'; ?>
+                                            </span>
+                                            <small class="text-muted ms-2">
+                                                (Every <?php echo SystemSettings::get('auto_backup_interval_years', 3); ?> years)
+                                            </small>
+                                        </div>
+                                        <div class="small text-muted">
+                                            <strong>Last Auto Backup:</strong><br>
+                                            <?php 
+                                            $lastBackup = SystemSettings::get('last_automatic_backup');
+                                            echo $lastBackup ? formatISTDateTime($lastBackup, 'M j, Y h:i A') : 'Never';
+                                            ?>
+                                        </div>
+                                        <div class="small text-muted mt-1">
+                                            <strong>Next Auto Backup:</strong><br>
+                                            <?php echo getNextAutomaticBackupDate(); ?>
+                                        </div>
+                                        <?php if (isAutomaticBackupDue()): ?>
+                                            <div class="mt-2">
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>Automatic Backup Due!
+                                                </span>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
-                                </form>
+                                    <div class="col-md-6">
+                                        <h6 class="small text-muted mb-2">Backup Actions</h6>
+                                        <!-- Manual Backup with Date Range -->
+                                        <div class="mb-2">
+                                            <button type="button" class="btn btn-primary btn-sm w-100" 
+                                                    data-bs-toggle="popover" 
+                                                    data-bs-placement="bottom" 
+                                                    data-bs-html="true" 
+                                                    data-bs-content="" 
+                                                    id="manualBackupBtn">
+                                                <i class="fas fa-download me-1"></i>Create Manual Backup
+                                            </button>
+                                        </div>
+                                        <?php if (isAutomaticBackupDue()): ?>
+                                        <form method="POST" action="" class="mb-2">
+                                            <input type="hidden" name="action" value="auto_backup_now">
+                                            <div class="d-grid">
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-clock me-1"></i>Run Automatic Backup Now
+                                                </button>
+                                            </div>
+                                        </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <hr>
                                 
                                 <?php if (!empty($backup_files)): ?>
-                                    <h6 class="small text-muted mb-2">Recent Backups</h6>
+                                    <h6 class="small text-muted mb-2">Recent Backups (4 Manual + 1 Auto)</h6>
                                     <div class="backup-list" style="max-height: 200px; overflow-y: auto;">
-                                        <?php foreach (array_slice($backup_files, 0, 5) as $backup): ?>
-                                            <div class="backup-item">
+                                        <?php foreach ($backup_files as $backup): ?>
+                                            <div class="backup-item d-flex justify-content-between align-items-center py-2 border-bottom">
                                                 <div>
-                                                    <div class="small fw-bold"><?php echo htmlspecialchars($backup['name']); ?></div>
+                                                    <div class="small fw-bold">
+                                                        <?php 
+                                                        $name = htmlspecialchars($backup['name']);
+                                                        // Add type indicator based on stored type
+                                                        if ($backup['type'] === 'auto') {
+                                                            echo '<i class="fas fa-clock text-success me-1" title="Automatic Backup"></i>';
+                                                        } else {
+                                                            echo '<i class="fas fa-user text-primary me-1" title="Manual Backup"></i>';
+                                                        }
+                                                        echo $name;
+                                                        ?>
+                                                    </div>
                                                     <div class="text-muted" style="font-size: 0.75rem;">
-                                                        <?php echo date('M j, Y H:i', $backup['date']); ?> 
+                                                        <?php echo formatISTDateTime(date('Y-m-d H:i:s', $backup['date']), 'M j, Y h:i A'); ?> 
                                                         (<?php echo round($backup['size'] / 1024 / 1024, 2); ?> MB)
                                                     </div>
+                                                </div>
+                                                <div>
+                                                    <?php if ($backup['type'] === 'auto'): ?>
+                                                        <span class="badge bg-success">Auto</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-primary">Manual</span>
+                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
+                                <?php else: ?>
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-database fa-2x mb-2"></i>
+                                        <p class="mb-0">No backups found</p>
+                                        <small>Create your first backup above<br>
+                                        <em>Recent backups will show 4 manual + 1 automatic</em></small>
+                                    </div>
                                 <?php endif; ?>
-                            </div>
-                        </div>
-                        
-                        <!-- Log Management -->
-                        <div class="card settings-card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-file-alt me-2"></i>Log Management
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST" action="">
-                                    <input type="hidden" name="action" value="clear_logs">
-                                    <div class="mb-3">
-                                        <label for="clear_days" class="form-label">Clear logs older than</label>
-                                        <select class="form-select" id="clear_days" name="clear_days">
-                                            <option value="7">7 days</option>
-                                            <option value="30" selected>30 days</option>
-                                            <option value="90">90 days</option>
-                                            <option value="365">1 year</option>
-                                        </select>
-                                    </div>
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-warning btn-sm" 
-                                                onclick="return confirm('Are you sure you want to clear old logs? This action cannot be undone.')">
-                                            <i class="fas fa-trash me-1"></i>Clear Old Logs
-                                        </button>
-                                    </div>
-                                </form>
                             </div>
                         </div>
                     </div>
@@ -651,24 +1070,21 @@ if (is_dir('../database/')) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/timezone-utils.js"></script>
+    <script src="../assets/js/loading-manager.js"></script>
     <script>
-        // Auto-hide alerts after 5 seconds
+        // Auto-hide alerts after 5 seconds (except delete data success messages)
         setTimeout(function() {
             const alerts = document.querySelectorAll('.alert');
             alerts.forEach(function(alert) {
+                // Don't auto-dismiss delete data success messages
+                if (alert.textContent.includes('Data deletion completed successfully')) {
+                    return;
+                }
                 const bsAlert = new bootstrap.Alert(alert);
                 bsAlert.close();
             });
         }, 5000);
-        
-        // Confirm maintenance mode toggle
-        document.getElementById('maintenance_mode').addEventListener('change', function() {
-            if (this.checked) {
-                if (!confirm('Are you sure you want to enable maintenance mode? This will prevent users from accessing the site.')) {
-                    this.checked = false;
-                }
-            }
-        });
         
         // Password visibility toggle function
         function togglePassword(fieldId) {
@@ -764,6 +1180,315 @@ if (is_dir('../database/')) {
                     hideSidebar();
                 }
             });
+        });
+
+        // Manual Backup Date Range Popover
+        let dateRangePopover; // Declare popover variable in global scope
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const manualBackupBtn = document.getElementById('manualBackupBtn');
+            const today = ISTUtils.getCurrentISTDate(true);
+            const oneYearAgo = ISTUtils.getISTDateWithOffset(-365);
+            
+            // Popover content
+            const popoverContent = `
+                <div class="backup-date-range-form" style="width: 280px; padding: 4px;">
+                    <form method="POST" action="" id="dateRangeBackupForm">
+                        <input type="hidden" name="action" value="backup_database">
+                        
+                        <div class="text-center mb-3">
+                            <h6 class="mb-0 fw-bold text-primary">
+                                <i class="fas fa-calendar-alt me-2"></i>Backup Date Range
+                            </h6>
+                            <small class="text-muted">Select the period to backup</small>
+                        </div>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label for="start_date" class="form-label small fw-semibold mb-1">From</label>
+                                <input type="date" class="form-control form-control-sm" 
+                                       id="start_date" name="start_date" 
+                                       value="${oneYearAgo}" 
+                                       max="${today}" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="end_date" class="form-label small fw-semibold mb-1">To</label>
+                                <input type="date" class="form-control form-control-sm" 
+                                       id="end_date" name="end_date" 
+                                       value="${today}" 
+                                       max="${today}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 text-center" style="min-height: 20px;">
+                            <div id="dateRangeInfo" class="small"></div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-download me-2"></i>Create Backup
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelBackupBtn">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // Initialize popover
+            dateRangePopover = new bootstrap.Popover(manualBackupBtn, {
+                content: popoverContent,
+                html: true,
+                placement: 'left',
+                trigger: 'click',
+                sanitize: false,
+                customClass: 'backup-date-popover'
+            });
+            
+            // Handle popover shown event
+            manualBackupBtn.addEventListener('shown.bs.popover', function() {
+                const startDateInput = document.getElementById('start_date');
+                const endDateInput = document.getElementById('end_date');
+                const dateRangeInfo = document.getElementById('dateRangeInfo');
+                const cancelBtn = document.getElementById('cancelBackupBtn');
+                
+                // Add cancel button event listener
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', function() {
+                        dateRangePopover.hide();
+                    });
+                }
+                
+                function updateDateRangeInfo() {
+                    const startDate = new Date(startDateInput.value);
+                    const endDate = new Date(endDateInput.value);
+                    
+                    if (startDate && endDate && startDate <= endDate) {
+                        const diffTime = Math.abs(endDate - startDate);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        
+                        let durationText = '';
+                        if (diffDays === 0) {
+                            durationText = 'Same day';
+                        } else if (diffDays === 1) {
+                            durationText = '1 day';
+                        } else if (diffDays < 30) {
+                            durationText = `${diffDays} days`;
+                        } else if (diffDays < 365) {
+                            const months = Math.floor(diffDays / 30);
+                            const remainingDays = diffDays % 30;
+                            durationText = months === 1 ? '1 month' : `${months} months`;
+                            if (remainingDays > 0) durationText += ` ${remainingDays}d`;
+                        } else {
+                            const years = Math.floor(diffDays / 365);
+                            const remainingDays = diffDays % 365;
+                            const months = Math.floor(remainingDays / 30);
+                            durationText = years === 1 ? '1 year' : `${years} years`;
+                            if (months > 0) durationText += ` ${months}m`;
+                        }
+                        
+                        dateRangeInfo.innerHTML = `
+                            <span class="badge bg-light text-dark border">
+                                <i class="fas fa-clock me-1"></i>${durationText}
+                            </span>
+                        `;
+                    } else if (startDate > endDate) {
+                        dateRangeInfo.innerHTML = `
+                            <span class="badge bg-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Invalid range
+                            </span>
+                        `;
+                    } else {
+                        dateRangeInfo.innerHTML = '';
+                    }
+                }
+                
+                startDateInput.addEventListener('change', updateDateRangeInfo);
+                endDateInput.addEventListener('change', updateDateRangeInfo);
+                updateDateRangeInfo(); // Initial calculation
+                
+                // Set max date for start date when end date changes
+                endDateInput.addEventListener('change', function() {
+                    startDateInput.max = endDateInput.value;
+                });
+                
+                // Set min date for end date when start date changes
+                startDateInput.addEventListener('change', function() {
+                    endDateInput.min = startDateInput.value;
+                });
+            });
+            
+            // Global function to hide popover
+            window.hidePopover = function() {
+                if (dateRangePopover) {
+                    dateRangePopover.hide();
+                }
+            };
+            
+            // Delete Data Date Range Popover
+            const deleteDataBtn = document.getElementById('deleteDataBtn');
+            if (deleteDataBtn) {
+                const today = ISTUtils.getCurrentISTDate(true);
+                const threeYearsAgo = ISTUtils.getISTDateWithOffset(-1095); // 3 years ago
+                
+                // Delete Data Popover content
+                const deletePopoverContent = `
+                    <div class="delete-date-range-form" style="width: 320px; padding: 4px;">
+                        <form method="POST" action="" id="deleteDateRangeForm">
+                            <input type="hidden" name="action" value="delete_data">
+                            
+                            <div class="text-center mb-3">
+                                <h6 class="mb-0 fw-bold text-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Data Range
+                                </h6>
+                                <small class="text-muted">Select the period to delete data from</small>
+                            </div>
+                            
+                            <div class="alert alert-danger alert-sm py-2 mb-3">
+                                <small><strong>Warning:</strong> This action cannot be undone!</small>
+                            </div>
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label for="delete_start_date" class="form-label small fw-semibold mb-1">From</label>
+                                    <input type="date" class="form-control form-control-sm" 
+                                           id="delete_start_date" name="start_date" 
+                                           value="${threeYearsAgo}" 
+                                           max="${today}" required>
+                                </div>
+                                <div class="col-6">
+                                    <label for="delete_end_date" class="form-label small fw-semibold mb-1">To</label>
+                                    <input type="date" class="form-control form-control-sm" 
+                                           id="delete_end_date" name="end_date" 
+                                           value="${today}" 
+                                           max="${today}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 text-center" style="min-height: 20px;">
+                                <div id="deleteDateRangeInfo" class="small"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                                    <label class="form-check-label small" for="confirmDelete">
+                                        I understand this will permanently delete data
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-danger btn-sm" id="confirmDeleteBtn" disabled>
+                                    <i class="fas fa-trash-alt me-2"></i>Delete Data
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelDeleteBtn">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                
+                // Initialize delete data popover
+                const deleteDataPopover = new bootstrap.Popover(deleteDataBtn, {
+                    content: deletePopoverContent,
+                    html: true,
+                    placement: 'bottom',
+                    trigger: 'click',
+                    sanitize: false,
+                    customClass: 'delete-date-popover'
+                });
+                
+                // Handle popover shown event for delete data
+                deleteDataBtn.addEventListener('shown.bs.popover', function() {
+                    const deleteStartDate = document.getElementById('delete_start_date');
+                    const deleteEndDate = document.getElementById('delete_end_date');
+                    const deleteDateRangeInfo = document.getElementById('deleteDateRangeInfo');
+                    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+                    const confirmDeleteCheckbox = document.getElementById('confirmDelete');
+                    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+                    const deleteForm = document.getElementById('deleteDateRangeForm');
+                    
+                    // Cancel button event listener
+                    if (cancelDeleteBtn) {
+                        cancelDeleteBtn.addEventListener('click', function() {
+                            deleteDataPopover.hide();
+                        });
+                    }
+                    
+                    // Checkbox event listener
+                    if (confirmDeleteCheckbox && confirmDeleteBtn) {
+                        confirmDeleteCheckbox.addEventListener('change', function() {
+                            confirmDeleteBtn.disabled = !this.checked;
+                        });
+                    }
+                    
+                    // Form submission confirmation
+                    if (deleteForm) {
+                        deleteForm.addEventListener('submit', function(e) {
+                            if (!confirm('Are you absolutely sure you want to delete this data? This action cannot be undone!')) {
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+                    }
+                    
+                    function updateDeleteDateRangeInfo() {
+                        const startDate = new Date(deleteStartDate.value);
+                        const endDate = new Date(deleteEndDate.value);
+                        
+                        if (startDate && endDate && startDate <= endDate) {
+                            const diffTime = Math.abs(endDate - startDate);
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            
+                            // Calculate years, months, days
+                            const years = Math.floor(diffDays / 365);
+                            const remainingDaysAfterYears = diffDays % 365;
+                            const months = Math.floor(remainingDaysAfterYears / 30);
+                            const days = remainingDaysAfterYears % 30;
+                            
+                            let durationText = '';
+                            if (years > 0) durationText += years + (years === 1 ? ' year ' : ' years ');
+                            if (months > 0) durationText += months + (months === 1 ? ' month ' : ' months ');
+                            if (days > 0) durationText += days + (days === 1 ? ' day' : ' days');
+                            
+                            durationText = durationText.trim() || 'Same day';
+                            
+                            deleteDateRangeInfo.innerHTML = `
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-clock me-1"></i>${durationText}
+                                </span>
+                                <div class="mt-1 text-danger">
+                                    <small><strong>Period:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</small>
+                                </div>
+                            `;
+                        } else if (startDate > endDate) {
+                            deleteDateRangeInfo.innerHTML = `
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Invalid range
+                                </span>
+                            `;
+                        } else {
+                            deleteDateRangeInfo.innerHTML = '';
+                        }
+                    }
+                    
+                    deleteStartDate.addEventListener('change', updateDeleteDateRangeInfo);
+                    deleteEndDate.addEventListener('change', updateDeleteDateRangeInfo);
+                    updateDeleteDateRangeInfo(); // Initial calculation
+                    
+                    // Set date constraints
+                    deleteEndDate.addEventListener('change', function() {
+                        deleteStartDate.max = deleteEndDate.value;
+                    });
+                    
+                    deleteStartDate.addEventListener('change', function() {
+                        deleteEndDate.min = deleteStartDate.value;
+                    });
+                });
+            }
         });
     </script>
 </body>

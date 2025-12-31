@@ -1,19 +1,23 @@
-Email to: mathi.raja.333@gmail.com
+
+================================================================================
+[2025-08-08 17:59:36] EMAIL SIMULATION
+To: solunattic@gmail.com
 Subject: GASC Blood Bridge - Verify Your Email
-Body: 
+Body:
+
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
                 <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
                     <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
                 </div>
                 <div style='padding: 30px; background: #f8f9fa;'>
-                    <h2>Welcome Mathi Raja!</h2>
+                    <h2>Welcome Mathi!</h2>
                     <p>Thank you for registering as a blood donor with GASC Blood Bridge.</p>
                     <p>To complete your registration, please click the button below to verify your email address:</p>
                     <div style='text-align: center; margin: 30px 0;'>
-                        <a href='http://localhost/GASC Blood Donor Bridge/donor/verify-email.php?token=58d5f42057fde0a1dc8ae6c27695de1a3c0a3b8dd6aa3e3ba6608fdcdd2577b1' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email Address</a>
+                        <a href='http://localhost/GASC Blood Donor Bridge/donor/verify-email.php?token=a510425bc8cd4d87ccc301ac2f8ba2167d4569880d7488146b9102f2ba91d7b9' style='background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email Address</a>
                     </div>
                     <p>Or copy and paste this link in your browser:</p>
-                    <p style='word-break: break-all; background: white; padding: 10px; border-radius: 5px;'>http://localhost/GASC Blood Donor Bridge/donor/verify-email.php?token=58d5f42057fde0a1dc8ae6c27695de1a3c0a3b8dd6aa3e3ba6608fdcdd2577b1</p>
+                    <p style='word-break: break-all; background: white; padding: 10px; border-radius: 5px;'>http://localhost/GASC Blood Donor Bridge/donor/verify-email.php?token=a510425bc8cd4d87ccc301ac2f8ba2167d4569880d7488146b9102f2ba91d7b9</p>
                     <p>This link will expire in 24 hours.</p>
                     <hr style='margin: 30px 0; border: 1px solid #dee2e6;'>
                     <p style='color: #6c757d; font-size: 14px;'>
@@ -24,26 +28,81 @@ Body:
                 </div>
             </div>
             
---------------------------------------------------
-Email to: mathi.raja.333@gmail.com
-Subject: Account Verified - GASC Blood Bridge
-Body: 
-                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                        <div style='background: linear-gradient(135deg, #dc2626, #991b1b); padding: 20px; text-align: center;'>
-                            <h1 style='color: white; margin: 0;'>GASC Blood Bridge</h1>
-                        </div>
-                        <div style='padding: 30px; background: #f8f9fa;'>
-                            <h2>Account Verified!</h2>
-                            <p>Dear Mathi Raja,</p>
-                            <p>Great news! Your donor account has been verified by our admin team.</p>
-                            <p>You can now:</p>
-                            <ul>
-                                <li>Receive blood donation requests</li>
-                                <li>Update your availability status</li>
-                                <li>Access your full donor dashboard</li>
-                            </ul>
-                            <p>Thank you for joining our life-saving mission!</p>
-                        </div>
-                    </div>
+================================================================================
+TEST LOG ENTRY - 2025-09-05 19:05:24 - Consolidated logging verification
+NOTIFICATION DISABLED - Password Reset Request:
+Email: aientirely@gmail.com
+User Name: System Administrator
+User Type: admin
+Reset Token: 4bfa21c065fe89ae093b82cd5c495a57bb3c2e6148789f9b652b82c38a702114
+Request Time: 2025-09-06 16:56:05
+Note: Password reset email would have been sent
+Manual Reset: Admin can reset password directly in user management
+----------------------------------------
+NOTIFICATION DISABLED - Password Reset Request:
+Email: donor@example.com
+User Name: Test Donor
+User Type: donor
+Reset Token: test_token_donor_123
+Request Time: 2025-09-06 17:17:18
+Note: Password reset email would have been sent
+Manual Reset: Admin can reset password directly in user management
+----------------------------------------
+NOTIFICATION DISABLED - Generic Email:
+To: mathi.nayak@gmail.com
+Subject: GASC Blood Bridge - Verify Your Email
+Is HTML: No
+Body Preview: 
+                
                     
---------------------------------------------------
+                        GASC Blood Bridge
+                    
+                    
+                        Welcome Mathiraja!
+                        Tha...
+Email Time: 2025-09-11 19:56:32
+----------------------------------------
+NOTIFICATION DISABLED - Generic Email:
+To: mathi.nayak@gmail.com
+Subject: Account Verified - GASC Blood Bridge
+Is HTML: No
+Body Preview: 
+                    
+                        
+                            GASC Blood Bridge
+                        
+                        
+                            Account Verified!
+    ...
+Email Time: 2025-09-11 20:12:45
+----------------------------------------
+NOTIFICATION DISABLED - Generic Email:
+To: mathi.raja.333@gmail.com
+Subject: GASC Blood Bridge - Blood Request Received
+Is HTML: No
+Body Preview: 
+            
+                
+                    GASC Blood Bridge
+                
+                
+                    Blood Request Received
+                    Dear Mathiraja S,
+        ...
+Email Time: 2025-09-11 20:59:56
+----------------------------------------
+2025-09-11 20:59:56 [NOTIFICATION DISABLED] Request ID: 15 | Blood Group: A+ | City: Erode | Eligible Donors: 1 | Urgency: Urgent
+NOTIFICATION DISABLED - Generic Email:
+To: mathi.raja.333@gmail.com
+Subject: Account Verified - GASC Blood Bridge
+Is HTML: No
+Body Preview: 
+                    
+                        
+                            GASC Blood Bridge
+                        
+                        
+                            Account Verified!
+    ...
+Email Time: 2025-09-13 19:52:49
+----------------------------------------
