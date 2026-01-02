@@ -530,16 +530,6 @@ This project is developed for educational purposes as part of college coursework
 
 ---
 
-## 🙏 Acknowledgments
-
-- **Bootstrap Team** - Responsive framework
-- **PHPMailer Team** - Email library
-- **MySQLDump-PHP Team** - Portable database backup solution
-- **GASC College** - Educational opportunity
-- **All Blood Donors** - Heroes who save lives every day
-
----
-
 ## 💡 Key Takeaways
 
 - 🩸 **Every feature prioritizes saving lives**
@@ -558,4 +548,3 @@ For questions or issues, refer to the [Troubleshooting](#-troubleshooting) secti
 
 **Version**: 2.0.0  
 **Last Updated**: December 31, 2025  
-**Developed by**: GASC Development Team
