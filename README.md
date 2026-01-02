@@ -16,11 +16,11 @@
 - [Features](#-features)
 - [Technology Stack](#️-technology-stack)
 - [Installation](#-installation)
-- [Configuration](#-configuration)
+- [Configuration](#configuration)
 - [User Roles](#-user-roles)
 - [Security](#-security)
 - [Database Backup](#-database-backup)
-- [Project Structure](#-project-structure)
+- [Project Structure](#project-structure)
 - [Troubleshooting](#-troubleshooting)
 
 ---
@@ -173,6 +173,7 @@ Donor Portal: http://localhost/GASC-Blood-Donor-Bridge/donor/
 
 ---
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 ### Email Settings (config/email.php)
@@ -336,8 +337,8 @@ database/backup_auto_2025-12-31_14-30-45.sql
 
 ---
 
+<a id="project-structure"></a>
 ## 🗂️ Project Structure
-
 ```
 GASC-Blood-Donor-Bridge/
 ├── index.php                      # Landing page
@@ -508,6 +509,8 @@ GASC-Blood-Donor-Bridge/
 This README contains all essential information. For advanced topics:
 
 - **[PROJECT_FEATURES_ANALYSIS.md](PROJECT_FEATURES_ANALYSIS.md)** - Complete technical analysis with code verification and API documentation
+
+---
 
 ---
 
